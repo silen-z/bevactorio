@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::map::{MapLayer, ACTIVE_MAP};
-use crate::DemolishEvent;
 
 #[derive(Copy, Clone, Debug)]
 pub enum BuildingType {
@@ -12,6 +11,7 @@ pub enum BuildingType {
 
 pub const AVAILABLE_BUILDINGS: &[BuildingType] = &[BuildingType::Belt, BuildingType::Mine];
 
+#[derive(Default)]
 pub struct SelectedBuilding(usize);
 
 impl SelectedBuilding {
@@ -36,11 +36,15 @@ impl SelectedBuilding {
     }
 }
 
-impl Default for SelectedBuilding {
-    fn default() -> Self {
-        Self(0)
-    }
+pub struct BuildEvent {
+    pub building_type: BuildingType,
+    pub tile_pos: TilePos,
 }
+
+pub struct DemolishEvent {
+    pub tile_pos: TilePos,
+}
+
 
 pub fn demolish_building(
     mut commands: Commands,

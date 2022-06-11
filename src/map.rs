@@ -35,6 +35,7 @@ pub enum BuildingTileType {
     BeltDown,
     BeltLeft,
     BeltRight,
+    Mine
 }
 
 impl BuildingTileType {
@@ -76,9 +77,8 @@ pub fn build_map(mut commands: Commands, asset_server: Res<AssetServer>, mut map
     map.add_layer(&mut commands, MapLayer::Terrain, layer_entity);
 
     // Build building layer
-
     let layer_settings =
-        LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0 * 4., 16.0));
+        LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0 * 5., 16.0));
 
     let (layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
         &mut commands,
@@ -108,7 +108,7 @@ impl TryFrom<Tile> for BuildingTileType {
     fn try_from(tile: Tile) -> Result<Self, ()> {
         match tile.texture_index {
             x if x >= BuildingTileType::BeltUp as u16
-                && x <= BuildingTileType::BeltRight as u16 =>
+                && x <= BuildingTileType::Mine as u16 =>
             {
                 Ok(unsafe { std::mem::transmute(x) })
             }
