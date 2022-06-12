@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 
+#[derive(Component)]
+pub struct MainCamera;
+
 // A simple camera system for moving and zooming the camera.
 pub fn camera_movement(
     time: Res<Time>,
