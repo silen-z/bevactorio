@@ -2,13 +2,18 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::BuildingType;
-use crate::map::{BuildingTileType, MapLayer, ACTIVE_MAP};
-use crate::mine::Item;
+use crate::map::{ActiveMap, BuildingTileType, MapLayer};
 use crate::{BuildEvent, LastPlacedTile};
 
 #[derive(Component)]
 pub struct Belt {
     pub item: Option<Entity>,
+}
+
+#[derive(Component)]
+pub struct Item {
+    pub belt: Entity,
+    pub progress: f32,
 }
 
 pub fn build_belt(
@@ -17,6 +22,7 @@ pub fn build_belt(
     mut tiles: Query<&mut Tile>,
     mut events: EventReader<BuildEvent>,
     mut last_placed: ResMut<LastPlacedTile>,
+    active_map: Res<ActiveMap>,
 ) {
     for event in events
         .iter()
@@ -47,7 +53,7 @@ pub fn build_belt(
                 texture_index: belt_dir as u16,
                 ..default()
             },
-            ACTIVE_MAP,
+            active_map.map_id,
             MapLayer::Buildings,
         ) {
             if let Some((last_e, _)) = last_placed.0 {
@@ -63,7 +69,7 @@ pub fn build_belt(
             commands.entity(placed_entity).insert(Belt { item: None });
 
             last_placed.0 = Some((placed_entity, event.tile_pos));
-            map.notify_chunk_for_tile(event.tile_pos, ACTIVE_MAP, MapLayer::Buildings);
+            map.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
         }
     }
 }
@@ -74,7 +80,10 @@ pub fn move_items_on_belts(
     mut belts: Query<(&mut Belt, &TilePos, &Tile)>,
     mut map_query: MapQuery,
     time: Res<Time>,
+    active_map: Res<ActiveMap>,
 ) {
+    use BuildingTileType::*;
+
     for (item_entity, mut item, mut item_transform) in items.iter_mut() {
         let (mut belt, belt_pos, belt_tile) = match belts.get_mut(item.belt) {
             Ok(b) => b,
@@ -86,54 +95,42 @@ pub fn move_items_on_belts(
 
         item.progress += time.delta_seconds();
 
-        if item.progress > 1.0 {
+        let next_belt_pos = if item.progress > 1.0 {
             let next_belt_pos = match BuildingTileType::try_from(*belt_tile) {
-                Ok(BuildingTileType::BeltUp) => TilePos(belt_pos.0, belt_pos.1 + 1),
-                Ok(BuildingTileType::BeltDown) => TilePos(belt_pos.0, belt_pos.1 - 1),
-                Ok(BuildingTileType::BeltLeft) => TilePos(belt_pos.0 - 1, belt_pos.1),
-                Ok(BuildingTileType::BeltRight) => TilePos(belt_pos.0 + 1, belt_pos.1),
+                Ok(BeltUp) => TilePos(belt_pos.0, belt_pos.1 + 1),
+                Ok(BeltDown) => TilePos(belt_pos.0, belt_pos.1 - 1),
+                Ok(BeltLeft) => TilePos(belt_pos.0 - 1, belt_pos.1),
+                Ok(BeltRight) => TilePos(belt_pos.0 + 1, belt_pos.1),
                 _ => panic!("item not on belt tile"),
             };
 
-            if let Ok(next_belt_entity) =
-                map_query.get_tile_entity(next_belt_pos, ACTIVE_MAP, MapLayer::Buildings)
-            {
-                // let (next_belt, _, next_belt_tile) = match belts.get(next_belt_entity) {
-                //     Ok(b) => b,
-                //     _ => {
-                //         commands.entity(item_entity).despawn();
-                //         continue;
-                //     }
-                // };
-
-                item.belt = next_belt_entity;
-                item.progress -= 1.0;
-                belt.item = None;
-            } else {
-                item.progress = 1.0;
+            match map_query.get_tile_entity(next_belt_pos, active_map.map_id, MapLayer::Buildings) {
+                Ok(next_belt_entity) => {
+                    item.belt = next_belt_entity;
+                    item.progress -= 1.0;
+                    belt.item = None;
+                    Some(next_belt_pos)
+                }
+                _ => {
+                    item.progress = 1.0;
+                    None
+                }
             }
-        }
-
-        let (belt, belt_pos, belt_tile) = match belts.get(item.belt) {
-            Ok(b) => b,
-            _ => {
-                commands.entity(item_entity).despawn();
-                continue;
-            }
+        } else {
+            None
         };
 
-        let x = belt_pos.0 as f32 * 16. - 384.;
-        let y = belt_pos.1 as f32 * 16. - 384.;
+        let world_pos = active_map.to_world_pos(next_belt_pos.unwrap_or(*belt_pos));
 
         let progress_transform = match BuildingTileType::try_from(*belt_tile) {
-            Ok(BuildingTileType::BeltUp) => Vec3::new(8., lerp(0., 16., item.progress), 0.),
-            Ok(BuildingTileType::BeltDown) => Vec3::new(8., lerp(16., 0., item.progress), 0.),
-            Ok(BuildingTileType::BeltLeft) => Vec3::new(lerp(16., 0., item.progress), 8., 0.),
-            Ok(BuildingTileType::BeltRight) => Vec3::new(lerp(0., 16., item.progress), 8., 0.),
+            Ok(BeltUp) => Vec3::new(8., lerp(0., 16., item.progress), 0.),
+            Ok(BeltDown) => Vec3::new(8., lerp(16., 0., item.progress), 0.),
+            Ok(BeltLeft) => Vec3::new(lerp(16., 0., item.progress), 8., 0.),
+            Ok(BeltRight) => Vec3::new(lerp(0., 16., item.progress), 8., 0.),
             _ => continue,
         };
 
-        item_transform.translation = Vec3::new(x, y, 10.0) + progress_transform;
+        item_transform.translation = world_pos.extend(10.0) + progress_transform;
     }
 }
 

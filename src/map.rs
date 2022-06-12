@@ -1,7 +1,102 @@
+use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-pub const ACTIVE_MAP: u16 = 0;
+pub struct ActiveMap {
+    pub map_id: u16,
+    pub map_size: MapSize,
+    pub chunk_size: ChunkSize,
+    pub tile_size: TileSize,
+}
+
+impl ActiveMap {
+    pub fn to_world_pos(&self, tile_pos: TilePos) -> Vec2 {
+        const CENTER: f32 = 0.5;
+        let tiles_x = self.map_size.0 * self.chunk_size.0;
+        let x = tile_pos.0 as f32 * self.tile_size.0 - (tiles_x as f32 * self.tile_size.0 * CENTER);
+
+        let tiles_x = self.map_size.1 * self.chunk_size.1;
+        let y = tile_pos.1 as f32 * self.tile_size.1 - (tiles_x as f32 * self.tile_size.1 * CENTER);
+
+        Vec2::new(x, y)
+    }
+}
+
+impl FromWorld for ActiveMap {
+    fn from_world(world: &mut World) -> Self {
+        let map_entity = world.spawn().id();
+
+        let asset_server = world.resource::<AssetServer>();
+
+        let terrain_texture = asset_server.load("terrain.png");
+        let buildings_texture = asset_server.load("buildings.png");
+
+        let mut dependencies: SystemState<(Commands, MapQuery)> = SystemState::new(world);
+        let (mut commands, mut map_query) = dependencies.get_mut(world);
+
+        let map_id = 0u16;
+        let mut map = Map::new(map_id, map_entity);
+
+        let map_size = MapSize(3, 3);
+        let chunk_size = ChunkSize(16, 16);
+        let tile_size = TileSize(16.0, 16.0);
+
+        let layer_settings =
+            LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0, 16.0));
+
+        // Build terrain layer
+        let (mut layer_builder, layer_entity) =
+            LayerBuilder::new(&mut commands, layer_settings, map_id, MapLayer::Terrain);
+
+        layer_builder.set_all(TileBundle {
+            tile: Tile {
+                texture_index: TerrainType::Grass as u16,
+                ..default()
+            },
+            ..default()
+        });
+
+        map_query.build_layer(&mut commands, layer_builder, terrain_texture);
+
+        map.add_layer(&mut commands, MapLayer::Terrain, layer_entity);
+
+        // Build building layer
+        let layer_settings = LayerSettings::new(
+            map_size,
+            chunk_size,
+            tile_size,
+            TextureSize(16.0 * 5., 16.0),
+        );
+
+        let (layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
+            &mut commands,
+            layer_settings,
+            map_id,
+            MapLayer::Buildings,
+        );
+
+        map_query.build_layer(&mut commands, layer_builder, buildings_texture);
+
+        map.add_layer(&mut commands, MapLayer::Buildings, layer_entity);
+
+        let center = layer_settings.get_pixel_center();
+
+        dependencies.apply(world);
+
+        world
+            .entity_mut(map_entity)
+            .insert(map)
+            .insert(Transform::from_xyz(-center.x, -center.y, 0.0))
+            .insert(GlobalTransform::default());
+
+        Self {
+            map_id,
+            map_size,
+            chunk_size,
+            tile_size,
+        }
+    }
+}
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 #[repr(u16)]
@@ -35,7 +130,7 @@ pub enum BuildingTileType {
     BeltDown,
     BeltLeft,
     BeltRight,
-    Mine
+    Mine,
 }
 
 impl BuildingTileType {
@@ -47,69 +142,12 @@ impl BuildingTileType {
     }
 }
 
-pub fn build_map(mut commands: Commands, asset_server: Res<AssetServer>, mut map_query: MapQuery) {
-    // Create map entity and component:
-    let map_entity = commands.spawn().id();
-    let mut map = Map::new(ACTIVE_MAP, map_entity);
-
-    let map_size = MapSize(3, 3);
-    let chunk_size = ChunkSize(16, 16);
-    let tile_size = TileSize(16.0, 16.0);
-
-    let layer_settings =
-        LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0, 16.0));
-
-    // Build terrain layer
-    let (mut layer_builder, layer_entity) =
-        LayerBuilder::new(&mut commands, layer_settings, ACTIVE_MAP, MapLayer::Terrain);
-
-    layer_builder.set_all(TileBundle {
-        tile: Tile {
-            texture_index: TerrainType::Grass as u16,
-            ..default()
-        },
-        ..default()
-    });
-
-    let terrain_texture = asset_server.load("terrain.png");
-    map_query.build_layer(&mut commands, layer_builder, terrain_texture);
-
-    map.add_layer(&mut commands, MapLayer::Terrain, layer_entity);
-
-    // Build building layer
-    let layer_settings =
-        LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0 * 5., 16.0));
-
-    let (layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
-        &mut commands,
-        layer_settings,
-        ACTIVE_MAP,
-        MapLayer::Buildings,
-    );
-
-    let buildings_texture = asset_server.load("buildings.png");
-    map_query.build_layer(&mut commands, layer_builder, buildings_texture);
-
-    map.add_layer(&mut commands, MapLayer::Buildings, layer_entity);
-
-    let center = layer_settings.get_pixel_center();
-    // Spawn Map
-    // Required in order to use map_query to retrieve layers/tiles.
-    commands
-        .entity(map_entity)
-        .insert(map)
-        .insert(Transform::from_xyz(-center.x, -center.y, 0.0))
-        .insert(GlobalTransform::default());
-}
-
 impl TryFrom<Tile> for BuildingTileType {
     type Error = ();
 
     fn try_from(tile: Tile) -> Result<Self, ()> {
         match tile.texture_index {
-            x if x >= BuildingTileType::BeltUp as u16
-                && x <= BuildingTileType::Mine as u16 =>
-            {
+            x if x >= BuildingTileType::BeltUp as u16 && x <= BuildingTileType::Mine as u16 => {
                 Ok(unsafe { std::mem::transmute(x) })
             }
             _ => Err(()),

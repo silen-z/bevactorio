@@ -40,4 +40,3 @@ pub fn world_cursor_pos(
         world_pos.truncate()
     });
 }
-

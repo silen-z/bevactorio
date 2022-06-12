@@ -173,6 +173,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "bevactorio"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_ecs_tilemap",
+ "rand",
+]
+
+[[package]]
 name = "bevy"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -192,15 +201,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "bevy-tiles-factorio"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_ecs_tilemap",
- "rand",
 ]
 
 [[package]]
@@ -386,7 +386,8 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_tilemap"
 version = "0.6.0"
-source = "git+https://github.com/StarArawn/bevy_ecs_tilemap.git?rev=9e431db7aad111a0fadeff4aff92524439912a57#9e431db7aad111a0fadeff4aff92524439912a57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c68fefad7aa09f9833d198c0fd1d9ebe58bf9ab3abf91cf912e4f5585227fb82"
 dependencies = [
  "bevy",
  "bytemuck",

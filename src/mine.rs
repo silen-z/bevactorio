@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::belts::Belt;
+use crate::belts::{Belt, Item};
 use crate::buildings::BuildingType;
-use crate::map::{BuildingTileType, MapLayer, ACTIVE_MAP};
+use crate::map::{ActiveMap, BuildingTileType, MapLayer};
 use crate::BuildEvent;
 
 #[derive(Component)]
@@ -11,7 +11,12 @@ pub struct Mine {
     timer: Timer,
 }
 
-pub fn build_mine(mut commands: Commands, mut map: MapQuery, mut events: EventReader<BuildEvent>) {
+pub fn build_mine(
+    mut commands: Commands,
+    mut map: MapQuery,
+    mut events: EventReader<BuildEvent>,
+    active_map: Res<ActiveMap>,
+) {
     for event in events
         .iter()
         .filter(|e| matches!(e.building_type, BuildingType::Mine))
@@ -23,22 +28,16 @@ pub fn build_mine(mut commands: Commands, mut map: MapQuery, mut events: EventRe
                 texture_index: BuildingTileType::Mine as u16,
                 ..default()
             },
-            ACTIVE_MAP,
+            active_map.map_id,
             MapLayer::Buildings,
         ) {
             commands.entity(mine_entity).insert(Mine {
                 timer: Timer::from_seconds(0.5, true),
             });
 
-            map.notify_chunk_for_tile(event.tile_pos, ACTIVE_MAP, MapLayer::Buildings);
+            map.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
         }
     }
-}
-
-#[derive(Component)]
-pub struct Item {
-    pub belt: Entity,
-    pub progress: f32,
 }
 
 pub fn mine_produce(
@@ -47,12 +46,13 @@ pub fn mine_produce(
     mut set: ParamSet<(Query<(Entity, &mut Belt)>, MapQuery)>,
     time: Res<Time>,
     asset_server: ResMut<AssetServer>,
+    active_map: Res<ActiveMap>,
 ) {
     for (mut mine, mine_pos) in mines.iter_mut() {
         if mine.timer.tick(time.delta()).just_finished() {
             for e in set
                 .p1()
-                .get_tile_neighbors(*mine_pos, ACTIVE_MAP, MapLayer::Buildings)
+                .get_tile_neighbors(*mine_pos, active_map.map_id, MapLayer::Buildings)
                 .into_iter()
                 .flatten()
             {
@@ -66,7 +66,10 @@ pub fn mine_produce(
                             texture: asset_server.load("items.png"),
                             ..default()
                         })
-                        .insert(Item { belt: belt_entity, progress: 0. })
+                        .insert(Item {
+                            belt: belt_entity,
+                            progress: 0.,
+                        })
                         .id();
 
                     belt.item = Some(item_entity);

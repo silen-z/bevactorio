@@ -1,10 +1,10 @@
 [package]
-name = "bevy-tiles-factorio"
+name = "bevactorio"
 version = "0.1.0"
 authors = ["Pavel Hrách <pavel@hrach.email>"]
 edition = "2021"
 
 [dependencies]
 bevy = { version = "0.7.0", features = ["dynamic"] }
-bevy_ecs_tilemap = { git = "https://github.com/StarArawn/bevy_ecs_tilemap.git", rev = "9e431db7aad111a0fadeff4aff92524439912a57" }
+bevy_ecs_tilemap = { version = "0.6.0" }
 rand = { version = "0.8.2", features = ["small_rng"] }

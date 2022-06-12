@@ -1,13 +1,12 @@
-use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
-
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::input::mouse::MouseWheel;
+use bevy::prelude::*;
+use bevy_ecs_tilemap::prelude::*;
 
 use crate::belts::{build_belt, move_items_on_belts};
 use crate::buildings::{demolish_building, BuildEvent, DemolishEvent, SelectedBuilding};
 use crate::camera::camera_movement;
-use crate::map::build_map;
+use crate::map::ActiveMap;
 use crate::mine::{build_mine, mine_produce};
 use crate::mouse::{world_cursor_pos, WorldCursorPos};
 
@@ -79,7 +78,7 @@ fn main() {
         .insert_resource(WindowDescriptor {
             width: 1270.0,
             height: 720.0,
-            title: String::from("Random Map Example"),
+            title: String::from("Bevactorio"),
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
@@ -87,7 +86,7 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(TilemapPlugin)
         .add_startup_system(startup)
-        .add_startup_system(build_map)
+        .init_resource::<ActiveMap>()
         .init_resource::<WorldCursorPos>()
         .add_system(world_cursor_pos)
         .add_system(select_building)

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::map::{MapLayer, ACTIVE_MAP};
+use crate::map::{ActiveMap, MapLayer};
 
 #[derive(Copy, Clone, Debug)]
 pub enum BuildingType {
@@ -45,20 +45,20 @@ pub struct DemolishEvent {
     pub tile_pos: TilePos,
 }
 
-
 pub fn demolish_building(
     mut commands: Commands,
     mut map: MapQuery,
     mut events: EventReader<DemolishEvent>,
+    active_map: Res<ActiveMap>,
 ) {
     for event in events.iter() {
         if let Ok(_) = map.despawn_tile(
             &mut commands,
             event.tile_pos,
-            ACTIVE_MAP,
+            active_map.map_id,
             MapLayer::Buildings,
         ) {
-            map.notify_chunk_for_tile(event.tile_pos, ACTIVE_MAP, MapLayer::Buildings);
+            map.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
         }
     }
 }
