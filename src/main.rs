@@ -3,10 +3,13 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::belts::{build_belt, move_items_on_belts};
-use crate::buildings::{demolish_building, BuildEvent, DemolishEvent, SelectedBuilding};
+use crate::buildings::{
+    demolish_building, update_build_guide, BuildEvent, DemolishEvent, SelectedBuilding,
+};
 use crate::camera::{camera_movement, MainCamera};
 use crate::input::{
-    handle_keyboard_input, handle_mouse_input, handle_wheel_input, world_cursor_pos, WorldCursorPos,
+    handle_keyboard_input, handle_mouse_input, handle_wheel_input, map_cursor_pos,
+    world_cursor_pos, MapCursorPos, WorldCursorPos,
 };
 use crate::map::ActiveMap;
 use crate::mine::{build_mine, mine_produce};
@@ -38,12 +41,13 @@ fn main() {
         .add_plugin(TilemapPlugin)
         .init_resource::<ActiveMap>()
         .init_resource::<SelectedBuilding>()
-        // .init_resource::<LastPlacedBelt>()
         .init_resource::<WorldCursorPos>()
+        .init_resource::<MapCursorPos>()
         .add_event::<BuildEvent>()
         .add_event::<DemolishEvent>()
         .add_startup_system(startup)
         .add_system(world_cursor_pos)
+        .add_system(map_cursor_pos)
         .add_system(handle_mouse_input)
         .add_system(handle_wheel_input)
         .add_system(handle_keyboard_input)
@@ -51,6 +55,7 @@ fn main() {
         .add_system(build_belt.after(handle_mouse_input))
         .add_system(build_mine.after(handle_mouse_input))
         .add_system(demolish_building.after(handle_mouse_input))
+        .add_system(update_build_guide.after(world_cursor_pos))
         .add_system(mine_produce)
         .add_system(move_items_on_belts.after(mine_produce))
         .add_system(set_texture_filters_to_nearest)

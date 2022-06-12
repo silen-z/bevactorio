@@ -14,15 +14,10 @@ pub fn handle_mouse_input(
     map_pos: Res<WorldCursorPos>,
     mut build_events: EventWriter<BuildEvent>,
     mut demolish_events: EventWriter<DemolishEvent>,
-    // mut last_placed: ResMut<LastPlacedBelt>,
     selected_building: Res<SelectedBuilding>,
+    active_map: Res<ActiveMap>,
 ) {
-    if let Some(tile_pos) = map_pos.0.and_then(|cursor_pos| {
-        let x = cursor_pos.x / 16. + 24.;
-        let y = cursor_pos.y / 16. + 24.;
-
-        (x > 0. || y > 0.).then_some(TilePos(x as u32, y as u32))
-    }) {
+    if let Some(tile_pos) = map_pos.and_then(|cursor_pos| active_map.to_tile_pos(cursor_pos)) {
         if mouse.pressed(MouseButton::Left) {
             build_events.send(BuildEvent {
                 building_type: selected_building.get(),
@@ -34,10 +29,6 @@ pub fn handle_mouse_input(
             demolish_events.send(DemolishEvent { tile_pos });
         }
     }
-
-    // if mouse.just_released(MouseButton::Left) {
-    //     last_placed.0 = None;
-    // }
 }
 
 pub fn handle_wheel_input(
@@ -142,4 +133,19 @@ pub fn world_cursor_pos(
         // reduce it to a 2D value
         world_pos.truncate()
     });
+}
+
+#[derive(Default)]
+pub struct MapCursorPos(pub Option<TilePos>);
+
+pub fn map_cursor_pos(
+    mut map_pos: ResMut<MapCursorPos>,
+    world_pos: Res<WorldCursorPos>,
+    active_map: Res<ActiveMap>,
+) {
+    let tile_pos = world_pos.and_then(|wp| active_map.to_tile_pos(wp));
+
+    if map_pos.0 != tile_pos {
+        map_pos.0 = tile_pos;
+    }
 }

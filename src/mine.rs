@@ -13,7 +13,7 @@ pub struct Mine {
 
 pub fn build_mine(
     mut commands: Commands,
-    mut map: MapQuery,
+    mut map_query: MapQuery,
     mut events: EventReader<BuildEvent>,
     active_map: Res<ActiveMap>,
 ) {
@@ -21,7 +21,7 @@ pub fn build_mine(
         .iter()
         .filter(|e| matches!(e.building_type, BuildingType::Mine))
     {
-        if let Ok(mine_entity) = map.set_tile(
+        if let Ok(mine_entity) = map_query.set_tile(
             &mut commands,
             event.tile_pos,
             Tile {
@@ -31,11 +31,12 @@ pub fn build_mine(
             active_map.map_id,
             MapLayer::Buildings,
         ) {
+            info!("{}", BuildingTileType::Mine as u16);
             commands.entity(mine_entity).insert(Mine {
                 timer: Timer::from_seconds(0.5, true),
             });
 
-            map.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
+            map_query.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
         }
     }
 }

@@ -18,7 +18,7 @@ pub struct Item {
 
 pub fn build_belt(
     mut commands: Commands,
-    mut map: MapQuery,
+    mut map_query: MapQuery,
     mut tiles: Query<&mut Tile>,
     mut events: EventReader<BuildEvent>,
     mut last_placed: Local<Option<(Entity, TilePos)>>,
@@ -44,7 +44,7 @@ pub fn build_belt(
             _ => (BeltDown, false),
         };
 
-        if let Ok(placed_entity) = map.set_tile(
+        if let Ok(placed_entity) = map_query.set_tile(
             &mut commands,
             event.tile_pos,
             Tile {
@@ -65,7 +65,7 @@ pub fn build_belt(
             commands.entity(placed_entity).insert(Belt { item: None });
 
             *last_placed = Some((placed_entity, event.tile_pos));
-            map.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
+            map_query.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
         }
     }
 }

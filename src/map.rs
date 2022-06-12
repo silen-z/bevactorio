@@ -8,7 +8,7 @@ pub enum MapLayer {
     Terrain = 0,
     Grid = 1,
     Buildings = 2,
-    // BuildGuide,
+    BuildGuide = 3,
 }
 
 impl LayerId for MapLayer {}
@@ -23,10 +23,10 @@ pub enum TerrainType {
 #[repr(u16)]
 pub enum BuildingTileType {
     BeltUp = 0,
-    BeltDown,
-    BeltLeft,
-    BeltRight,
-    Mine,
+    BeltDown = 1,
+    BeltLeft = 2,
+    BeltRight = 3,
+    Mine = 4,
 }
 
 impl BuildingTileType {
@@ -52,6 +52,17 @@ impl ActiveMap {
         let y = tile_pos.1 as f32 * self.tile_size.1 + self.map_transform.translation.y;
 
         Vec2::new(x, y)
+    }
+
+    pub fn to_tile_pos(&self, world_pos: Vec2) -> Option<TilePos> {
+        let x = (world_pos.x - self.map_transform.translation.x) / self.tile_size.0;
+        let y = (world_pos.y - self.map_transform.translation.y) / self.tile_size.1;
+
+        let map_x_size = (self.map_size.0 * self.chunk_size.0) as f32;
+        let map_y_size = (self.map_size.1 * self.chunk_size.1) as f32;
+
+        (x > 0. && y > 0. && x < map_x_size && y < map_y_size)
+            .then_some(TilePos(x as u32, y as u32))
     }
 }
 
@@ -79,62 +90,85 @@ impl FromWorld for ActiveMap {
             LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0, 16.0));
 
         // Build terrain layer
-        let (mut layer_builder, layer_entity) =
-            LayerBuilder::new(&mut commands, layer_settings, map_id, MapLayer::Terrain);
+        {
+            let (mut layer_builder, layer_entity) =
+                LayerBuilder::new(&mut commands, layer_settings, map_id, MapLayer::Terrain);
 
-        layer_builder.set_all(TileBundle {
-            tile: Tile {
-                texture_index: TerrainType::Grass as u16,
+            layer_builder.set_all(TileBundle {
+                tile: Tile {
+                    texture_index: TerrainType::Grass as u16,
+                    ..default()
+                },
                 ..default()
-            },
-            ..default()
-        });
+            });
 
-        map_query.build_layer(&mut commands, layer_builder, terrain_texture);
+            map_query.build_layer(&mut commands, layer_builder, terrain_texture);
 
-        map.add_layer(&mut commands, MapLayer::Terrain, layer_entity);
+            map.add_layer(&mut commands, MapLayer::Terrain, layer_entity);
+        }
 
         // Build building layer
-        let layer_settings = LayerSettings::new(
-            map_size,
-            chunk_size,
-            tile_size,
-            TextureSize(16.0 * 5., 16.0),
-        );
+        {
+            let layer_settings = LayerSettings::new(
+                map_size,
+                chunk_size,
+                tile_size,
+                TextureSize(16.0 * 5., 16.0),
+            );
 
-        let (layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
-            &mut commands,
-            layer_settings,
-            map_id,
-            MapLayer::Buildings,
-        );
+            let (layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
+                &mut commands,
+                layer_settings,
+                map_id,
+                MapLayer::Buildings,
+            );
 
-        map_query.build_layer(&mut commands, layer_builder, buildings_texture);
+            map_query.build_layer(&mut commands, layer_builder, buildings_texture.clone());
 
-        map.add_layer(&mut commands, MapLayer::Buildings, layer_entity);
+            map.add_layer(&mut commands, MapLayer::Buildings, layer_entity);
+        }
 
         // build grid layer
-        let layer_settings =
-            LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0, 16.0));
+        {
+            let layer_settings =
+                LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0, 16.0));
 
-        let (mut layer_builder, layer_entity) =
-            LayerBuilder::new(&mut commands, layer_settings, map_id, MapLayer::Grid);
+            let (mut layer_builder, layer_entity) =
+                LayerBuilder::new(&mut commands, layer_settings, map_id, MapLayer::Grid);
 
-        layer_builder.set_all(TileBundle {
-            tile: Tile {
-                texture_index: 0,
+            layer_builder.set_all(TileBundle {
+                tile: Tile {
+                    texture_index: 0,
+                    ..default()
+                },
                 ..default()
-            },
-            ..default()
-        });
+            });
 
-        map_query.build_layer(&mut commands, layer_builder, grid_texture);
+            map_query.build_layer(&mut commands, layer_builder, grid_texture);
 
-        map.add_layer(&mut commands, MapLayer::Grid, layer_entity);
+            map.add_layer(&mut commands, MapLayer::Grid, layer_entity);
+        }
 
-        commands
-            .entity(layer_entity)
-            .insert(Visibility { is_visible: true });
+        // Build building guide layer
+        {
+            let layer_settings = LayerSettings::new(
+                map_size,
+                chunk_size,
+                tile_size,
+                TextureSize(16.0 * 5., 16.0),
+            );
+
+            let (layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
+                &mut commands,
+                layer_settings,
+                map_id,
+                MapLayer::BuildGuide,
+            );
+
+            map_query.build_layer(&mut commands, layer_builder, buildings_texture);
+
+            map.add_layer(&mut commands, MapLayer::BuildGuide, layer_entity);
+        }
 
         dependencies.apply(world);
 
