@@ -1,3 +1,4 @@
+use arrayvec::ArrayVec;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
@@ -8,6 +9,16 @@ use crate::map::{ActiveMap, BuildingTileType, MapLayer};
 pub enum BuildingType {
     Belt,
     Mine,
+}
+
+#[derive(Component)]
+pub struct Building {
+    pub tiles: ArrayVec<(TilePos, Entity), 9>,
+}
+
+#[derive(Component)]
+pub struct BuildingTile {
+    pub building_entity: Entity,
 }
 
 pub const AVAILABLE_BUILDINGS: &[BuildingType] = &[BuildingType::Belt, BuildingType::Mine];
@@ -50,16 +61,46 @@ pub fn demolish_building(
     mut commands: Commands,
     mut map_query: MapQuery,
     mut events: EventReader<DemolishEvent>,
+    building_query: Query<(Entity, &Building)>,
+    building_tile_query: Query<&BuildingTile>,
     active_map: Res<ActiveMap>,
 ) {
     for event in events.iter() {
-        if let Ok(_) = map_query.despawn_tile(
-            &mut commands,
-            event.tile_pos,
-            active_map.map_id,
-            MapLayer::Buildings,
-        ) {
-            map_query.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
+        if let Ok(tile_entity) =
+            map_query.get_tile_entity(event.tile_pos, active_map.map_id, MapLayer::Buildings)
+        {
+            // TODO maybe handle disconnected entities
+            if let Ok((building_entity, building)) = building_tile_query
+                .get(tile_entity)
+                .and_then(|bt| building_query.get(bt.building_entity))
+            {
+                for (tile_pos, _) in &building.tiles {
+                    let _ = map_query.despawn_tile(
+                        &mut commands,
+                        *tile_pos,
+                        active_map.map_id,
+                        MapLayer::Buildings,
+                    );
+                    map_query.notify_chunk_for_tile(
+                        *tile_pos,
+                        active_map.map_id,
+                        MapLayer::Buildings,
+                    );
+                }
+                commands.entity(building_entity).despawn();
+            } else {
+                let _ = map_query.despawn_tile(
+                    &mut commands,
+                    event.tile_pos,
+                    active_map.map_id,
+                    MapLayer::Buildings,
+                );
+                map_query.notify_chunk_for_tile(
+                    event.tile_pos,
+                    active_map.map_id,
+                    MapLayer::Buildings,
+                );
+            }
         }
     }
 }
@@ -90,12 +131,11 @@ pub fn update_build_guide(
     }
 
     if let Some(tile_pos) = mouse_pos.0 {
-        let tiles = selected_building.get().tiles(tile_pos);
+        let template = selected_building.get().template(tile_pos);
 
-        let possible_to_build = tiles.clone().all(|(_, tile_pos)| {
-            map_query
-                .get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings)
-                .is_err()
+        let possible_to_build = template.positions().all(|tile_pos| {
+            let tile = map_query.get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings);
+            matches!(tile, Err(MapTileError::NonExistent(..)))
         });
 
         let guide_color = match possible_to_build {
@@ -103,7 +143,7 @@ pub fn update_build_guide(
             false => Color::rgba(1., 0., 0., 0.75),
         };
 
-        for (building_type, tile_pos) in tiles {
+        for (building_type, tile_pos) in template.instructions() {
             let tile = Tile {
                 texture_index: building_type as u16,
                 color: guide_color,
@@ -141,34 +181,41 @@ const MINE_TEMPLATE: [Option<BuildingTileType>; 9] = [
 ];
 
 impl BuildingType {
-    // pub fn tiles(&self) -> impl Iterator<Item = (BuildingTileType, TilePos)> + Clone {
-    //     let template = match self {
-    //         BuildingType::Belt => BELT_TEMPLATE,
-    //         BuildingType::Mine => MINE_TEMPLATE,
-    //     };
-
-    //     template.into_iter().enumerate().flat_map(|(i, tile)| {
-    //         tile.map(|t| {
-    //             let tile_pos = TilePos(i as u32 % 3, i as u32 / 3);
-    //             (t, tile_pos)
-    //         })
-    //     })
-    // }
-
-    pub fn tiles(
-        &self,
-        tile_pos: TilePos,
-    ) -> impl Iterator<Item = (BuildingTileType, TilePos)> + Clone {
+    pub fn template(&self, origin: TilePos) -> BuildingTemplate {
         let template = match self {
             BuildingType::Belt => BELT_TEMPLATE,
             BuildingType::Mine => MINE_TEMPLATE,
         };
 
-        template.into_iter().enumerate().flat_map(move |(i, tile)| {
-            tile.map(|t| {
-                let tile_pos = TilePos(tile_pos.0 + i as u32 % 3, tile_pos.1 + i as u32 / 3);
-                (t, tile_pos)
+        BuildingTemplate::from_static(&template, origin)
+    }
+}
+
+pub struct BuildingTemplate {
+    pub tiles: ArrayVec<(BuildingTileType, TilePos), 9>,
+}
+
+impl BuildingTemplate {
+    pub fn from_static(template: &[Option<BuildingTileType>], origin: TilePos) -> Self {
+        let tiles = template
+            .into_iter()
+            .enumerate()
+            .flat_map(move |(i, tile)| {
+                tile.map(|t| {
+                    let tile_pos = TilePos(origin.0 + i as u32 % 3, origin.1 + i as u32 / 3);
+                    (t, tile_pos)
+                })
             })
-        })
+            .collect();
+
+        Self { tiles }
+    }
+
+    pub fn instructions(self) -> impl Iterator<Item = (BuildingTileType, TilePos)> {
+        self.tiles.into_iter()
+    }
+
+    pub fn positions(&self) -> impl Iterator<Item = TilePos> + '_ {
+        self.tiles.iter().copied().map(|(_, tile_pos)| tile_pos)
     }
 }
