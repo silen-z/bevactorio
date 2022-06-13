@@ -71,7 +71,7 @@ pub fn update_build_guide(
     mut commands: Commands,
     mut map_query: MapQuery,
     mouse_pos: Res<MapCursorPos>,
-    build_guides: Query<&TilePos, With<BuildGuide>>,
+    build_guides: Query<(&TilePos, &mut BuildGuide)>,
     active_map: Res<ActiveMap>,
     selected_building: Res<SelectedBuilding>,
 ) {
@@ -79,7 +79,7 @@ pub fn update_build_guide(
         return;
     }
 
-    for tile_pos in build_guides.iter() {
+    for (tile_pos, _) in build_guides.iter() {
         let _ = map_query.despawn_tile(
             &mut commands,
             *tile_pos,
@@ -90,16 +90,29 @@ pub fn update_build_guide(
     }
 
     if let Some(tile_pos) = mouse_pos.0 {
-        for (building_type, offset) in selected_building.get().tiles() {
+        let tiles = selected_building.get().tiles(tile_pos);
+
+        let possible_to_build = tiles.clone().all(|(_, tile_pos)| {
+            map_query
+                .get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings)
+                .is_err()
+        });
+
+        let guide_color = match possible_to_build {
+            true => Color::rgba(0., 0., 1., 0.75),
+            false => Color::rgba(1., 0., 0., 0.75),
+        };
+
+        for (building_type, tile_pos) in tiles {
             let tile = Tile {
                 texture_index: building_type as u16,
-                color: Color::rgba(1., 0., 0., 0.5),
+                color: guide_color,
                 ..default()
             };
 
             if let Ok(entity) = map_query.set_tile(
                 &mut commands,
-                TilePos(tile_pos.0 + offset.0, tile_pos.1 + offset.1),
+                tile_pos,
                 tile,
                 active_map.map_id,
                 MapLayer::BuildGuide,
@@ -128,15 +141,32 @@ const MINE_TEMPLATE: [Option<BuildingTileType>; 9] = [
 ];
 
 impl BuildingType {
-    pub fn tiles(&self) -> impl Iterator<Item = (BuildingTileType, TilePos)> {
+    // pub fn tiles(&self) -> impl Iterator<Item = (BuildingTileType, TilePos)> + Clone {
+    //     let template = match self {
+    //         BuildingType::Belt => BELT_TEMPLATE,
+    //         BuildingType::Mine => MINE_TEMPLATE,
+    //     };
+
+    //     template.into_iter().enumerate().flat_map(|(i, tile)| {
+    //         tile.map(|t| {
+    //             let tile_pos = TilePos(i as u32 % 3, i as u32 / 3);
+    //             (t, tile_pos)
+    //         })
+    //     })
+    // }
+
+    pub fn tiles(
+        &self,
+        tile_pos: TilePos,
+    ) -> impl Iterator<Item = (BuildingTileType, TilePos)> + Clone {
         let template = match self {
             BuildingType::Belt => BELT_TEMPLATE,
             BuildingType::Mine => MINE_TEMPLATE,
         };
 
-        template.into_iter().enumerate().flat_map(|(i, tile)| {
+        template.into_iter().enumerate().flat_map(move |(i, tile)| {
             tile.map(|t| {
-                let tile_pos = TilePos(i as u32 % 3, i as u32 / 3);
+                let tile_pos = TilePos(tile_pos.0 + i as u32 % 3, tile_pos.1 + i as u32 / 3);
                 (t, tile_pos)
             })
         })

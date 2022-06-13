@@ -21,10 +21,19 @@ pub fn build_mine(
         .iter()
         .filter(|e| matches!(e.building_type, BuildingType::Mine))
     {
-        for (tile_type, offset) in event.building_type.tiles() {
+        let building_tiles = event.building_type.tiles(event.tile_pos);
+
+        if building_tiles.clone().any(|(_, tile_pos)| {
+            let res = map_query.get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings);
+            matches!(res, Ok(_) | Err(MapTileError::OutOfBounds(_)))
+        }) {
+            continue;
+        }
+
+        for (tile_type, tile_pos) in building_tiles {
             if let Ok(mine_entity) = map_query.set_tile(
                 &mut commands,
-                TilePos(event.tile_pos.0 + offset.0, event.tile_pos.1 + offset.1),
+                tile_pos,
                 Tile {
                     texture_index: tile_type as u16,
                     ..default()
@@ -36,11 +45,7 @@ pub fn build_mine(
                     timer: Timer::from_seconds(0.5, true),
                 });
 
-                map_query.notify_chunk_for_tile(
-                    event.tile_pos,
-                    active_map.map_id,
-                    MapLayer::Buildings,
-                );
+                map_query.notify_chunk_for_tile(tile_pos, active_map.map_id, MapLayer::Buildings);
             }
         }
     }
@@ -69,6 +74,7 @@ pub fn mine_produce(
 
                     let item_entity = commands
                         .spawn_bundle(SpriteBundle {
+                            transform: Transform::from_xyz(0., 0., -9999.),
                             texture: asset_server.load("items.png"),
                             ..default()
                         })

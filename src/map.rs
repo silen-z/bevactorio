@@ -30,6 +30,7 @@ pub enum BuildingTileType {
     MineTopRight = 5,
     MineBottomLeft = 6,
     MineBottomRight = 7,
+    Unknown = u16::MAX,
 }
 
 impl BuildingTileType {
@@ -75,13 +76,13 @@ impl FromWorld for ActiveMap {
 
         let asset_server = world.resource::<AssetServer>();
 
-        let terrain_texture = asset_server.load("terrain.png");
+        let terrain_texture = asset_server.load("tilesets/terrain.png");
         let terrain_texture_size = TextureSize(16.0, 16.0);
 
-        let buildings_texture = asset_server.load("buildings.png");
+        let buildings_texture = asset_server.load("tilesets/buildings.png");
         let building_texture_size = TextureSize(16.0 * 8., 16.0);
 
-        let grid_texture = asset_server.load("grid.png");
+        let grid_texture = asset_server.load("tilesets/grid.png");
         let grid_texture_size = TextureSize(16.0, 16.0);
 
         let mut dependencies: SystemState<(Commands, MapQuery)> = SystemState::new(world);
@@ -197,16 +198,20 @@ impl From<MapLayer> for u16 {
     }
 }
 
-impl TryFrom<Tile> for BuildingTileType {
-    type Error = ();
-
-    fn try_from(tile: Tile) -> Result<Self, ()> {
-        match tile.texture_index {
-            x if x >= BuildingTileType::BeltUp as u16 && x <= BuildingTileType::MineBottomRight as u16 => {
-                Ok(unsafe { std::mem::transmute(x) })
-            }
-            _ => Err(()),
+impl From<u16> for BuildingTileType {
+    fn from(texture_index: u16) -> Self {
+        match texture_index {
+            x if x >= BuildingTileType::BeltUp as u16
+                && x <= BuildingTileType::MineBottomRight as u16 =>
+            unsafe { std::mem::transmute(x) },
+            _ => Self::Unknown,
         }
+    }
+}
+
+impl From<Tile> for BuildingTileType {
+    fn from(tile: Tile) -> Self {
+        tile.texture_index.into()
     }
 }
 

@@ -34,6 +34,13 @@ pub fn build_belt(
             continue;
         }
 
+        match map_query.get_tile_entity(event.tile_pos, active_map.map_id, MapLayer::Buildings) {
+            Ok(tile) if !BuildingTileType::from(*tiles.get(tile).unwrap()).is_belt() => continue,
+            Err(MapTileError::OutOfBounds(_)) => continue,
+            Err(MapTileError::AlreadyExists(_)) => unreachable!(),
+            _ => {}
+        }
+
         let TilePos(curr_x, curr_y) = event.tile_pos;
 
         let (belt_dir, update_last_belt) = match *last_placed {
@@ -54,11 +61,18 @@ pub fn build_belt(
             active_map.map_id,
             MapLayer::Buildings,
         ) {
-            if let Some((last_e, _)) = *last_placed {
-                if let Some(mut last_tile) = tiles.get_mut(last_e).ok().filter(|t| {
-                    update_last_belt && BuildingTileType::try_from(**t).unwrap().is_belt()
-                }) {
+            if let Some((last_e, last_pos)) = *last_placed {
+                if let Some(mut last_tile) = tiles
+                    .get_mut(last_e)
+                    .ok()
+                    .filter(|t| update_last_belt && BuildingTileType::from(**t).is_belt())
+                {
                     last_tile.texture_index = belt_dir as u16;
+                    map_query.notify_chunk_for_tile(
+                        last_pos,
+                        active_map.map_id,
+                        MapLayer::Buildings,
+                    );
                 }
             }
 
@@ -92,11 +106,11 @@ pub fn move_items_on_belts(
         item.progress += time.delta_seconds();
 
         let next_belt_pos = if item.progress > 1.0 {
-            let next_belt_pos = match BuildingTileType::try_from(*belt_tile) {
-                Ok(BeltUp) => TilePos(belt_pos.0, belt_pos.1 + 1),
-                Ok(BeltDown) => TilePos(belt_pos.0, belt_pos.1 - 1),
-                Ok(BeltLeft) => TilePos(belt_pos.0 - 1, belt_pos.1),
-                Ok(BeltRight) => TilePos(belt_pos.0 + 1, belt_pos.1),
+            let next_belt_pos = match BuildingTileType::from(*belt_tile) {
+                BeltUp => TilePos(belt_pos.0, belt_pos.1 + 1),
+                BeltDown => TilePos(belt_pos.0, belt_pos.1 - 1),
+                BeltLeft => TilePos(belt_pos.0 - 1, belt_pos.1),
+                BeltRight => TilePos(belt_pos.0 + 1, belt_pos.1),
                 _ => panic!("item not on belt tile"),
             };
 
