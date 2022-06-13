@@ -113,10 +113,17 @@ pub fn update_build_guide(
     mut map_query: MapQuery,
     mouse_pos: Res<MapCursorPos>,
     build_guides: Query<(&TilePos, &mut BuildGuide)>,
+    tiles: Query<&Tile>,
     active_map: Res<ActiveMap>,
     selected_building: Res<SelectedBuilding>,
+    build_events: EventReader<BuildEvent>,
+    demolish_events: EventReader<DemolishEvent>,
 ) {
-    if !mouse_pos.is_changed() && !selected_building.is_changed() {
+    if !mouse_pos.is_changed()
+        && !selected_building.is_changed()
+        && build_events.is_empty()
+        && demolish_events.is_empty()
+    {
         return;
     }
 
@@ -131,15 +138,25 @@ pub fn update_build_guide(
     }
 
     if let Some(tile_pos) = mouse_pos.0 {
-        let template = selected_building.get().template(tile_pos);
+        let selected_building = selected_building.get();
+
+        let template = selected_building.template(tile_pos);
 
         let possible_to_build = template.positions().all(|tile_pos| {
             let tile = map_query.get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings);
             matches!(tile, Err(MapTileError::NonExistent(..)))
         });
 
+        let is_belt_exception = matches!(selected_building, BuildingType::Belt if map_query
+            .get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings)
+            .ok()
+            .and_then(|te| tiles.get(te).ok())
+            .map_or(false, |tile| BuildingTileType::from(tile.texture_index).is_belt())
+        );
+
         let guide_color = match possible_to_build {
-            true => Color::rgba(0., 0., 1., 0.75),
+            true => Color::rgba(0., 1., 0., 0.75),
+            false if is_belt_exception => Color::rgba(1., 1., 0., 0.75),
             false => Color::rgba(1., 0., 0., 0.75),
         };
 
