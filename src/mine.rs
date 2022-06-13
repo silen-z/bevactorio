@@ -3,7 +3,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::belts::{Belt, Item};
 use crate::buildings::BuildingType;
-use crate::map::{ActiveMap, BuildingTileType, MapLayer};
+use crate::map::{ActiveMap, MapLayer};
 use crate::BuildEvent;
 
 #[derive(Component)]
@@ -21,22 +21,27 @@ pub fn build_mine(
         .iter()
         .filter(|e| matches!(e.building_type, BuildingType::Mine))
     {
-        if let Ok(mine_entity) = map_query.set_tile(
-            &mut commands,
-            event.tile_pos,
-            Tile {
-                texture_index: BuildingTileType::Mine as u16,
-                ..default()
-            },
-            active_map.map_id,
-            MapLayer::Buildings,
-        ) {
-            info!("{}", BuildingTileType::Mine as u16);
-            commands.entity(mine_entity).insert(Mine {
-                timer: Timer::from_seconds(0.5, true),
-            });
+        for (tile_type, offset) in event.building_type.tiles() {
+            if let Ok(mine_entity) = map_query.set_tile(
+                &mut commands,
+                TilePos(event.tile_pos.0 + offset.0, event.tile_pos.1 + offset.1),
+                Tile {
+                    texture_index: tile_type as u16,
+                    ..default()
+                },
+                active_map.map_id,
+                MapLayer::Buildings,
+            ) {
+                commands.entity(mine_entity).insert(Mine {
+                    timer: Timer::from_seconds(0.5, true),
+                });
 
-            map_query.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
+                map_query.notify_chunk_for_tile(
+                    event.tile_pos,
+                    active_map.map_id,
+                    MapLayer::Buildings,
+                );
+            }
         }
     }
 }

@@ -97,22 +97,15 @@ pub fn update_build_guide(
                 ..default()
             };
 
-            match map_query.set_tile(
+            if let Ok(entity) = map_query.set_tile(
                 &mut commands,
                 TilePos(tile_pos.0 + offset.0, tile_pos.1 + offset.1),
                 tile,
                 active_map.map_id,
                 MapLayer::BuildGuide,
             ) {
-                Ok(entity) => {
-                    commands.entity(entity).insert(BuildGuide);
-                    map_query.notify_chunk_for_tile(
-                        tile_pos,
-                        active_map.map_id,
-                        MapLayer::BuildGuide,
-                    );
-                }
-                Err(e) => error!("{}", e),
+                commands.entity(entity).insert(BuildGuide);
+                map_query.notify_chunk_for_tile(tile_pos, active_map.map_id, MapLayer::BuildGuide);
             }
         }
     }
@@ -129,13 +122,13 @@ const BELT_TEMPLATE: [Option<BuildingTileType>; 9] = [
 
 #[rustfmt::skip]
 const MINE_TEMPLATE: [Option<BuildingTileType>; 9] = [
-    Some(Mine),  Some(Mine), None,
-    Some(Mine),  Some(Mine), None,
-    None,        None,       None,
+    Some(MineBottomLeft),  Some(MineBottomRight), None,
+    Some(MineTopLeft),     Some(MineTopRight),    None,
+    None,                  None,                  None,
 ];
 
 impl BuildingType {
-    fn tiles(&self) -> impl Iterator<Item = (BuildingTileType, TilePos)> {
+    pub fn tiles(&self) -> impl Iterator<Item = (BuildingTileType, TilePos)> {
         let template = match self {
             BuildingType::Belt => BELT_TEMPLATE,
             BuildingType::Mine => MINE_TEMPLATE,

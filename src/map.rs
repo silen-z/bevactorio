@@ -26,7 +26,10 @@ pub enum BuildingTileType {
     BeltDown = 1,
     BeltLeft = 2,
     BeltRight = 3,
-    Mine = 4,
+    MineTopLeft = 4,
+    MineTopRight = 5,
+    MineBottomLeft = 6,
+    MineBottomRight = 7,
 }
 
 impl BuildingTileType {
@@ -73,8 +76,13 @@ impl FromWorld for ActiveMap {
         let asset_server = world.resource::<AssetServer>();
 
         let terrain_texture = asset_server.load("terrain.png");
+        let terrain_texture_size = TextureSize(16.0, 16.0);
+
         let buildings_texture = asset_server.load("buildings.png");
+        let building_texture_size = TextureSize(16.0 * 8., 16.0);
+
         let grid_texture = asset_server.load("grid.png");
+        let grid_texture_size = TextureSize(16.0, 16.0);
 
         let mut dependencies: SystemState<(Commands, MapQuery)> = SystemState::new(world);
         let (mut commands, mut map_query) = dependencies.get_mut(world);
@@ -87,7 +95,7 @@ impl FromWorld for ActiveMap {
         let tile_size = TileSize(16.0, 16.0);
 
         let layer_settings =
-            LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0, 16.0));
+            LayerSettings::new(map_size, chunk_size, tile_size, terrain_texture_size);
 
         // Build terrain layer
         {
@@ -109,12 +117,8 @@ impl FromWorld for ActiveMap {
 
         // Build building layer
         {
-            let layer_settings = LayerSettings::new(
-                map_size,
-                chunk_size,
-                tile_size,
-                TextureSize(16.0 * 5., 16.0),
-            );
+            let layer_settings =
+                LayerSettings::new(map_size, chunk_size, tile_size, building_texture_size);
 
             let (layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
                 &mut commands,
@@ -131,7 +135,7 @@ impl FromWorld for ActiveMap {
         // build grid layer
         {
             let layer_settings =
-                LayerSettings::new(map_size, chunk_size, tile_size, TextureSize(16.0, 16.0));
+                LayerSettings::new(map_size, chunk_size, tile_size, grid_texture_size);
 
             let (mut layer_builder, layer_entity) =
                 LayerBuilder::new(&mut commands, layer_settings, map_id, MapLayer::Grid);
@@ -151,12 +155,8 @@ impl FromWorld for ActiveMap {
 
         // Build building guide layer
         {
-            let layer_settings = LayerSettings::new(
-                map_size,
-                chunk_size,
-                tile_size,
-                TextureSize(16.0 * 5., 16.0),
-            );
+            let layer_settings =
+                LayerSettings::new(map_size, chunk_size, tile_size, building_texture_size);
 
             let (layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
                 &mut commands,
@@ -202,7 +202,7 @@ impl TryFrom<Tile> for BuildingTileType {
 
     fn try_from(tile: Tile) -> Result<Self, ()> {
         match tile.texture_index {
-            x if x >= BuildingTileType::BeltUp as u16 && x <= BuildingTileType::Mine as u16 => {
+            x if x >= BuildingTileType::BeltUp as u16 && x <= BuildingTileType::MineBottomRight as u16 => {
                 Ok(unsafe { std::mem::transmute(x) })
             }
             _ => Err(()),
