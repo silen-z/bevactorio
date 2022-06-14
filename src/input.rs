@@ -7,7 +7,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::{BuildEvent, DemolishEvent, SelectedBuilding};
 use crate::camera::MainCamera;
-use crate::map::{ActiveMap, MapLayer};
+use crate::map::{ActiveMap, GridState, MapLayer};
 
 pub fn handle_mouse_input(
     mouse: Res<Input<MouseButton>>,
@@ -31,25 +31,25 @@ pub fn handle_mouse_input(
     }
 }
 
-pub fn handle_wheel_input(
-    mut scroll_evr: EventReader<MouseWheel>,
-    mut selected_building: ResMut<SelectedBuilding>,
-) {
-    for event in scroll_evr.iter() {
-        match event.y {
-            y if y < 0. => selected_building.prev(),
-            y if y > 0. => selected_building.next(),
-            _ => {}
-        };
-    }
-}
+// pub fn handle_wheel_input(
+//     mut scroll_evr: EventReader<MouseWheel>,
+//     mut selected_building: ResMut<SelectedBuilding>,
+// ) {
+//     for event in scroll_evr.iter() {
+//         match event.y {
+//             y if y < 0. => selected_building.prev(),
+//             y if y > 0. => selected_building.next(),
+//             _ => {}
+//         };
+//     }
+// }
 
 pub fn handle_keyboard_input(
     mut commands: Commands,
     mut key_events: EventReader<KeyboardInput>,
-    mut layers: Query<&mut Transform>,
     mut map_query: MapQuery,
     active_map: Res<ActiveMap>,
+    mut grid_state: ResMut<GridState>,
 ) {
     for event in key_events.iter() {
         match event {
@@ -57,18 +57,8 @@ pub fn handle_keyboard_input(
                 state: ElementState::Pressed,
                 key_code: Some(KeyCode::G),
                 ..
-            } => {
-                if let Some(mut transform) = map_query
-                    .get_layer(active_map.map_id, MapLayer::Grid)
-                    .and_then(|(e, _)| layers.get_mut(e).ok())
-                {
-                    transform.translation.z = if transform.translation.z < 0. {
-                        u16::from(MapLayer::Grid) as f32
-                    } else {
-                        -10.0
-                    };
-                }
-            }
+            } => grid_state.toggle(),
+
             KeyboardInput {
                 state: ElementState::Pressed,
                 key_code: Some(KeyCode::C),

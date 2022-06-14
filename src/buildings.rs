@@ -5,7 +5,7 @@ use bevy_ecs_tilemap::prelude::*;
 use crate::input::MapCursorPos;
 use crate::map::{ActiveMap, BuildingTileType, MapLayer};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BuildingType {
     Belt,
     Mine,
@@ -24,7 +24,7 @@ pub struct BuildingTile {
 pub const AVAILABLE_BUILDINGS: &[BuildingType] = &[BuildingType::Belt, BuildingType::Mine];
 
 #[derive(Default)]
-pub struct SelectedBuilding(usize);
+pub struct SelectedBuilding(pub usize);
 
 impl SelectedBuilding {
     pub fn prev(&mut self) {

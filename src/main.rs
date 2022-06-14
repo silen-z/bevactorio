@@ -1,6 +1,7 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use map::GridState;
 
 use crate::belts::{build_belt, move_items_on_belts};
 use crate::buildings::{
@@ -8,11 +9,12 @@ use crate::buildings::{
 };
 use crate::camera::{camera_movement, MainCamera};
 use crate::input::{
-    handle_keyboard_input, handle_mouse_input, handle_wheel_input, map_cursor_pos,
+    handle_keyboard_input, handle_mouse_input, map_cursor_pos,
     world_cursor_pos, MapCursorPos, WorldCursorPos,
 };
-use crate::map::ActiveMap;
+use crate::map::{toggle_grid, ActiveMap};
 use crate::mine::{build_mine, mine_produce};
+use crate::ui::{handle_select_building, init_ui};
 
 mod belts;
 mod buildings;
@@ -20,6 +22,7 @@ mod camera;
 mod input;
 mod map;
 mod mine;
+mod ui;
 
 fn startup(mut commands: Commands, mut app_state: ResMut<State<AppState>>) {
     commands
@@ -47,9 +50,9 @@ fn main() {
         .with_system(world_cursor_pos)
         .with_system(map_cursor_pos)
         .with_system(handle_mouse_input)
-        .with_system(handle_wheel_input)
         .with_system(handle_keyboard_input)
         .with_system(camera_movement)
+        .with_system(toggle_grid.after(handle_keyboard_input))
         .with_system(build_belt.after(handle_mouse_input))
         .with_system(build_mine.after(handle_mouse_input))
         .with_system(demolish_building.after(handle_mouse_input))
@@ -57,7 +60,9 @@ fn main() {
         .with_system(move_items_on_belts.after(mine_produce))
         .with_system(set_texture_filters_to_nearest);
 
-    let build_mode = SystemSet::on_update(AppState::BuildMode).with_system(update_build_guide);
+    let build_mode = SystemSet::on_update(AppState::BuildMode)
+        .with_system(update_build_guide)
+        .with_system(handle_select_building);
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -69,10 +74,12 @@ fn main() {
         .init_resource::<SelectedBuilding>()
         .init_resource::<WorldCursorPos>()
         .init_resource::<MapCursorPos>()
+        .init_resource::<GridState>()
         .insert_resource(window_settings)
         .add_event::<BuildEvent>()
         .add_event::<DemolishEvent>()
         .add_startup_system(startup)
+        .add_startup_system(init_ui)
         .add_system_set(in_game_systems)
         .add_system_set(build_mode)
         .run();

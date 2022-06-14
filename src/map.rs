@@ -192,6 +192,48 @@ impl FromWorld for ActiveMap {
     }
 }
 
+pub enum GridState {
+    Enabled,
+    Disabled,
+}
+
+impl Default for GridState {
+    fn default() -> Self {
+        GridState::Enabled
+    }
+}
+
+impl GridState {
+    pub fn toggle(&mut self) {
+        *self = match self {
+            GridState::Enabled => GridState::Disabled,
+            GridState::Disabled => GridState::Enabled,
+        }
+    }
+}
+
+pub fn toggle_grid(
+    mut layers: Query<&mut Transform>,
+    mut map_query: MapQuery,
+    grid_state: Res<GridState>,
+
+    active_map: Res<ActiveMap>,
+) {
+    if !grid_state.is_changed() {
+        return;
+    }
+
+    if let Some(mut transform) = map_query
+        .get_layer(active_map.map_id, MapLayer::Grid)
+        .and_then(|(e, _)| layers.get_mut(e).ok())
+    {
+        transform.translation.z = match *grid_state {
+            GridState::Enabled => u16::from(MapLayer::Grid) as f32,
+            GridState::Disabled => -10.0,
+        };
+    }
+}
+
 impl From<MapLayer> for u16 {
     fn from(layer: MapLayer) -> u16 {
         layer as u16
