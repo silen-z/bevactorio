@@ -30,6 +30,7 @@ pub enum BuildingTileType {
     MineTopRight = 5,
     MineBottomLeft = 6,
     MineBottomRight = 7,
+    Explosion = 8,
     Unknown = u16::MAX,
 }
 
@@ -80,7 +81,7 @@ impl FromWorld for ActiveMap {
         let terrain_texture_size = TextureSize(16.0, 16.0);
 
         let buildings_texture = asset_server.load("tilesets/buildings.png");
-        let building_texture_size = TextureSize(16.0 * 8., 16.0);
+        let building_texture_size = TextureSize(16.0 * 9., 16.0);
 
         let grid_texture = asset_server.load("tilesets/grid.png");
         let grid_texture_size = TextureSize(16.0, 16.0);

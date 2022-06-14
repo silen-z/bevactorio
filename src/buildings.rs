@@ -21,30 +21,16 @@ pub struct BuildingTile {
     pub building_entity: Entity,
 }
 
-pub const AVAILABLE_BUILDINGS: &[BuildingType] = &[BuildingType::Belt, BuildingType::Mine];
+#[derive(Clone)]
+pub enum SelectedTool {
+    None,
+    Building(BuildingType),
+    Buldozer,
+}
 
-#[derive(Default)]
-pub struct SelectedBuilding(pub usize);
-
-impl SelectedBuilding {
-    pub fn prev(&mut self) {
-        if self.0 == 0 {
-            self.0 = AVAILABLE_BUILDINGS.len() - 1;
-        } else {
-            self.0 -= 1;
-        }
-    }
-
-    pub fn next(&mut self) {
-        if self.0 == AVAILABLE_BUILDINGS.len() - 1 {
-            self.0 = 0;
-        } else {
-            self.0 += 1;
-        }
-    }
-
-    pub fn get(&self) -> BuildingType {
-        AVAILABLE_BUILDINGS[self.0]
+impl Default for SelectedTool {
+    fn default() -> Self {
+        SelectedTool::None
     }
 }
 
@@ -115,12 +101,12 @@ pub fn update_build_guide(
     build_guides: Query<(&TilePos, &mut BuildGuide)>,
     tiles: Query<&Tile>,
     active_map: Res<ActiveMap>,
-    selected_building: Res<SelectedBuilding>,
+    selected_tool: Res<SelectedTool>,
     build_events: EventReader<BuildEvent>,
     demolish_events: EventReader<DemolishEvent>,
 ) {
     if !mouse_pos.is_changed()
-        && !selected_building.is_changed()
+        && !selected_tool.is_changed()
         && build_events.is_empty()
         && demolish_events.is_empty()
     {
@@ -138,9 +124,36 @@ pub fn update_build_guide(
     }
 
     if let Some(tile_pos) = mouse_pos.0 {
-        let selected_building = selected_building.get();
+        let (selected_building, template) = match *selected_tool {
+            SelectedTool::Building(building_type) => {
+                (building_type, building_type.template(tile_pos))
+            }
+            SelectedTool::Buldozer => {
+                let tile = Tile {
+                    texture_index: BuildingTileType::Explosion as u16,
 
-        let template = selected_building.template(tile_pos);
+                    ..default()
+                };
+
+                if let Ok(entity) = map_query.set_tile(
+                    &mut commands,
+                    tile_pos,
+                    tile,
+                    active_map.map_id,
+                    MapLayer::BuildGuide,
+                ) {
+                    commands.entity(entity).insert(BuildGuide);
+                    map_query.notify_chunk_for_tile(
+                        tile_pos,
+                        active_map.map_id,
+                        MapLayer::BuildGuide,
+                    );
+                }
+                return;
+            }
+
+            SelectedTool::None => return,
+        };
 
         let possible_to_build = template.positions().all(|tile_pos| {
             let tile = map_query.get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings);
@@ -184,13 +197,6 @@ pub fn update_build_guide(
 use BuildingTileType::*;
 
 #[rustfmt::skip]
-const BELT_TEMPLATE: [Option<BuildingTileType>; 9] = [
-    Some(BeltUp), None, None,
-    None,         None, None,
-    None,         None, None
-];
-
-#[rustfmt::skip]
 const MINE_TEMPLATE: [Option<BuildingTileType>; 9] = [
     Some(MineBottomLeft),  Some(MineBottomRight), None,
     Some(MineTopLeft),     Some(MineTopRight),    None,
@@ -200,7 +206,7 @@ const MINE_TEMPLATE: [Option<BuildingTileType>; 9] = [
 impl BuildingType {
     pub fn template(&self, origin: TilePos) -> BuildingTemplate {
         let template = match self {
-            BuildingType::Belt => BELT_TEMPLATE,
+            BuildingType::Belt => return BuildingTemplate::from_single(BeltUp, origin),
             BuildingType::Mine => MINE_TEMPLATE,
         };
 
@@ -213,6 +219,12 @@ pub struct BuildingTemplate {
 }
 
 impl BuildingTemplate {
+    pub fn from_single(building_type: BuildingTileType, origin: TilePos) -> Self {
+        let mut tiles = ArrayVec::new();
+        tiles.push((building_type, origin));
+        Self { tiles }
+    }
+
     pub fn from_static(template: &[Option<BuildingTileType>], origin: TilePos) -> Self {
         let tiles = template
             .into_iter()

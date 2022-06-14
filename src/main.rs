@@ -1,20 +1,19 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
-use map::GridState;
 
 use crate::belts::{build_belt, move_items_on_belts};
 use crate::buildings::{
-    demolish_building, update_build_guide, BuildEvent, DemolishEvent, SelectedBuilding,
+    demolish_building, update_build_guide, BuildEvent, DemolishEvent, SelectedTool,
 };
 use crate::camera::{camera_movement, MainCamera};
 use crate::input::{
-    handle_keyboard_input, handle_mouse_input, map_cursor_pos,
-    world_cursor_pos, MapCursorPos, WorldCursorPos,
+    handle_keyboard_input, handle_mouse_input, map_cursor_pos, world_cursor_pos, MapCursorPos,
+    WorldCursorPos,
 };
-use crate::map::{toggle_grid, ActiveMap};
+use crate::map::{toggle_grid, ActiveMap, GridState};
 use crate::mine::{build_mine, mine_produce};
-use crate::ui::{handle_select_building, init_ui};
+use crate::ui::{handle_select_tool, init_ui};
 
 mod belts;
 mod buildings;
@@ -62,7 +61,7 @@ fn main() {
 
     let build_mode = SystemSet::on_update(AppState::BuildMode)
         .with_system(update_build_guide)
-        .with_system(handle_select_building);
+        .with_system(handle_select_tool);
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -71,7 +70,7 @@ fn main() {
         .add_plugin(TilemapPlugin)
         .add_state(AppState::InGame)
         .init_resource::<ActiveMap>()
-        .init_resource::<SelectedBuilding>()
+        .init_resource::<SelectedTool>()
         .init_resource::<WorldCursorPos>()
         .init_resource::<MapCursorPos>()
         .init_resource::<GridState>()

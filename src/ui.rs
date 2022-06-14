@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-use crate::buildings::{BuildingType, SelectedBuilding, AVAILABLE_BUILDINGS};
+use crate::buildings::{BuildingType, SelectedTool};
 
-#[derive(Component)]
-pub struct SelectBuildingAction(BuildingType);
+#[derive(Component, Clone)]
+pub struct SelectToolAction(SelectedTool);
 
 pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(UiCameraBundle { ..default() });
@@ -49,7 +49,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         text,
                         TextStyle {
                             font: asset_server.load("AsepriteFont.ttf"),
-                            color: Color::RED,
+                            color: Color::GRAY,
                             font_size: 24.,
                             ..default()
                         },
@@ -63,28 +63,31 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     building_menu.with_children(|menu| {
         button_builder(
             menu,
-            "BELT".to_string(),
-            SelectBuildingAction(BuildingType::Belt),
+            "LAY BELTS".to_string(),
+            SelectToolAction(SelectedTool::Building(BuildingType::Belt)),
         );
         button_builder(
             menu,
-            "MINE".to_string(),
-            SelectBuildingAction(BuildingType::Mine),
+            "BUILD MINE".to_string(),
+            SelectToolAction(SelectedTool::Building(BuildingType::Mine)),
+        );
+
+        button_builder(
+            menu,
+            "DEMOLISH".to_string(),
+            SelectToolAction(SelectedTool::Buldozer),
         );
     });
 }
 
-pub fn handle_select_building(
-    actions: Query<(&SelectBuildingAction, &Interaction)>,
-    mut selected_building: ResMut<SelectedBuilding>,
+pub fn handle_select_tool(
+    actions: Query<(&SelectToolAction, &Interaction)>,
+    mut selected_building: ResMut<SelectedTool>,
 ) {
     if let Some((action, _)) = actions
         .iter()
         .find(|(_, interaction)| matches!(interaction, Interaction::Clicked))
     {
-        selected_building.0 = AVAILABLE_BUILDINGS
-            .iter()
-            .position(|building| building == &action.0)
-            .unwrap();
+        *selected_building = action.0.clone();
     }
 }

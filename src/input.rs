@@ -1,11 +1,10 @@
 use bevy::input::keyboard::KeyboardInput;
-use bevy::input::mouse::MouseWheel;
 use bevy::input::ElementState;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::buildings::{BuildEvent, DemolishEvent, SelectedBuilding};
+use crate::buildings::{BuildEvent, DemolishEvent, SelectedTool};
 use crate::camera::MainCamera;
 use crate::map::{ActiveMap, GridState, MapLayer};
 
@@ -14,19 +13,25 @@ pub fn handle_mouse_input(
     map_pos: Res<WorldCursorPos>,
     mut build_events: EventWriter<BuildEvent>,
     mut demolish_events: EventWriter<DemolishEvent>,
-    selected_building: Res<SelectedBuilding>,
+    selected_building: Res<SelectedTool>,
     active_map: Res<ActiveMap>,
 ) {
     if let Some(tile_pos) = map_pos.and_then(|cursor_pos| active_map.to_tile_pos(cursor_pos)) {
         if mouse.pressed(MouseButton::Left) {
-            build_events.send(BuildEvent {
-                building_type: selected_building.get(),
-                tile_pos,
-            });
-        }
+            match *selected_building {
+                SelectedTool::Building(building_type) => {
+                    build_events.send(BuildEvent {
+                        building_type,
+                        tile_pos,
+                    });
+                }
 
-        if mouse.pressed(MouseButton::Right) {
-            demolish_events.send(DemolishEvent { tile_pos });
+                SelectedTool::Buldozer => {
+                    demolish_events.send(DemolishEvent { tile_pos });
+                }
+
+                _ => {}
+            }
         }
     }
 }
