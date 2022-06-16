@@ -98,7 +98,6 @@ pub fn mine_produce(
                             .id();
 
                         *slot = Some((item_entity, 0.));
-                        debug!("putting item on belt");
                         break;
                     }
                 }

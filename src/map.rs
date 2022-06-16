@@ -19,7 +19,7 @@ pub enum TerrainType {
     Grass = 0,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u16)]
 pub enum BuildingTileType {
     BeltUp = 0,
