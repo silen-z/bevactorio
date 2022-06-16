@@ -81,7 +81,16 @@ fn main() {
         .add_startup_system(init_ui)
         .add_system_set(in_game_systems)
         .add_system_set(build_mode)
+        .add_system(full_belts)
         .run();
+}
+
+fn full_belts(belts: Query<(&belts::Belt, &TilePos)>) {
+    for (b, tp) in belts.iter() {
+        if b.items.iter().filter(|s| s.is_some()).count() == 3 {
+            // dbg!("{:?}", tp);
+        }
+    }
 }
 
 pub fn set_texture_filters_to_nearest(

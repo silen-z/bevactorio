@@ -10,6 +10,7 @@ use crate::BuildEvent;
 #[derive(Component)]
 pub struct Mine {
     timer: Timer,
+    output: TilePos,
 }
 
 pub fn build_mine(
@@ -36,7 +37,8 @@ pub fn build_mine(
         let mine_entity = commands
             .spawn()
             .insert(Mine {
-                timer: Timer::from_seconds(0.5, true),
+                output: event.tile_pos,
+                timer: Timer::from_seconds(1.5, true),
             })
             .id();
 
@@ -65,42 +67,40 @@ pub fn build_mine(
     }
 }
 
-// TODO fix for new multitile buildings
 pub fn mine_produce(
     mut commands: Commands,
-    mut mines: Query<(&mut Mine, &TilePos)>,
-    mut set: ParamSet<(Query<(Entity, &mut Belt)>, MapQuery)>,
+    mut mines: Query<&mut Mine>,
+    mut belts: Query<(Entity, &mut Belt)>,
+    mut map_query: MapQuery,
     time: Res<Time>,
     asset_server: ResMut<AssetServer>,
     active_map: Res<ActiveMap>,
 ) {
-    for (mut mine, mine_pos) in mines.iter_mut() {
+    for mut mine in mines.iter_mut() {
         if mine.timer.tick(time.delta()).just_finished() {
-            for e in set
-                .p1()
-                .get_tile_neighbors(*mine_pos, active_map.map_id, MapLayer::Buildings)
+            for e in map_query
+                .get_tile_neighbors(mine.output, active_map.map_id, MapLayer::Buildings)
                 .into_iter()
                 .flatten()
             {
-                if let Ok((belt_entity, mut belt)) = set.p0().get_mut(e) {
-                    if belt.item.is_some() {
-                        continue;
+                if let Ok((belt_entity, mut belt)) = belts.get_mut(e) {
+                    if let Some(slot) = belt.space(0.33) {
+                        let item_entity = commands
+                            .spawn_bundle(SpriteBundle {
+                                transform: Transform::from_xyz(0., 0., -9999.),
+                                texture: asset_server.load("items.png"),
+                                ..default()
+                            })
+                            .insert(Item {
+                                belt: belt_entity,
+                                progress: 0.,
+                            })
+                            .id();
+
+                        *slot = Some((item_entity, 0.));
+                        debug!("putting item on belt");
+                        break;
                     }
-
-                    let item_entity = commands
-                        .spawn_bundle(SpriteBundle {
-                            transform: Transform::from_xyz(0., 0., -9999.),
-                            texture: asset_server.load("items.png"),
-                            ..default()
-                        })
-                        .insert(Item {
-                            belt: belt_entity,
-                            progress: 0.,
-                        })
-                        .id();
-
-                    belt.item = Some(item_entity);
-                    break;
                 }
             }
         }
