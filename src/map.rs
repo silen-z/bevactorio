@@ -41,6 +41,30 @@ impl BuildingTileType {
             Self::BeltUp | Self::BeltDown | Self::BeltLeft | Self::BeltRight
         )
     }
+
+    pub fn next_belt_pos(&self, TilePos(x, y): TilePos) -> Option<TilePos> {
+        use BuildingTileType::*;
+        let next_belt_pos = match self {
+            BeltUp => TilePos(x, y + 1),
+            BeltDown if y > 0 => TilePos(x, y - 1),
+            BeltLeft if x > 0 => TilePos(x - 1, y),
+            BeltRight => TilePos(x + 1, y),
+            _ => return None,
+        };
+
+        Some(next_belt_pos)
+    }
+
+    pub fn next_belt_start(self, next: impl Into<Self>) -> Option<f32> {
+        use BuildingTileType::*;
+
+        match (self, next.into()) {
+            (BeltDown | BeltUp, BeltLeft | BeltRight) => Some(0.5),
+            (BeltLeft | BeltRight, BeltDown | BeltUp) => Some(0.5),
+            (x, y) if x == y => Some(0.0),
+            _ => None,
+        }
+    }
 }
 
 pub struct ActiveMap {
@@ -249,12 +273,6 @@ impl From<u16> for BuildingTileType {
             unsafe { std::mem::transmute(x) },
             _ => Self::Unknown,
         }
-    }
-}
-
-impl From<Tile> for BuildingTileType {
-    fn from(tile: Tile) -> Self {
-        tile.texture_index.into()
     }
 }
 

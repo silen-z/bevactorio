@@ -10,7 +10,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut building_menu = commands.spawn_bundle(NodeBundle {
         color: Color::NONE.into(),
         style: Style {
-            flex_direction: FlexDirection::Column,
+            flex_direction: FlexDirection::ColumnReverse,
             position_type: PositionType::Absolute,
             position: Rect {
                 top: Val::Px(16.),

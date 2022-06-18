@@ -13,14 +13,25 @@ pub struct Belt {
 const ITEM_SIZE: f32 = 1. / 3.;
 
 impl Belt {
-    // TODO better select space here, and probably take closure instead 
-    pub fn space(&mut self, pos: f32) -> Option<&mut Option<(Entity, f32)>> {
+    pub fn place(&mut self, pos: f32, entity: Entity) -> bool {
+        self.place_new(pos, || entity)
+    }
+
+    // TODO smarter placing of items on belts
+    pub fn place_new(&mut self, pos: f32, entity_init: impl FnOnce() -> Entity) -> bool {
         match self.items {
-            [None, None, None] => self.items.get_mut(0),
-            [Some((_, p)), None, None] if p > pos => self.items.get_mut(1),
-            [_, Some((_, p)), None] if p > pos => self.items.get_mut(2),
-            _ => None,
+            [None, None, None] => {
+                self.items[0] = Some((entity_init(), pos));
+            }
+            [Some((_, p)), None, None] if p > pos => {
+                self.items[1] = Some((entity_init(), pos));
+            }
+            [_, Some((_, p)), None] if p > pos => {
+                self.items[2] = Some((entity_init(), pos));
+            }
+            _ => return false,
         }
+        true
     }
 }
 
@@ -49,25 +60,23 @@ pub fn build_belt(
         }
 
         match map_query.get_tile_entity(event.tile_pos, active_map.map_id, MapLayer::Buildings) {
-            Ok(tile) if !BuildingTileType::from(*tiles.get(tile).unwrap()).is_belt() => continue,
+            Ok(tile) => {
+                let is_belt = tiles
+                    .get(tile)
+                    .map_or(false, |t| BuildingTileType::from(t.texture_index).is_belt());
+
+                if !is_belt {
+                    continue;
+                }
+            }
             Err(MapTileError::OutOfBounds(_)) => continue,
-            Err(MapTileError::AlreadyExists(_)) => unreachable!(),
             _ => {}
         }
 
-        let TilePos(curr_x, curr_y) = event.tile_pos;
-
-        let (belt_dir, update_last_belt) = match *last_placed {
-            Some((_, TilePos(x, y))) if curr_x > 0 && (x == curr_x - 1) && (y == curr_y) => {
-                (BeltRight, true)
-            }
-            Some((_, TilePos(x, y))) if (x == curr_x + 1) && (y == curr_y) => (BeltLeft, true),
-            Some((_, TilePos(x, y))) if curr_y > 0 && (x == curr_x) && y == (curr_y - 1) => {
-                (BeltUp, true)
-            }
-            Some((_, TilePos(x, y))) if (x == curr_x) && (y == curr_y + 1) => (BeltDown, true),
-            _ => (BeltDown, false),
-        };
+        let (belt_dir, update_last_belt) = last_placed
+            .and_then(|(_, pos)| belt_dir_between(event.tile_pos, pos))
+            .map(|dir| (dir, true))
+            .unwrap_or((BeltDown, false));
 
         if let Ok(placed_entity) = map_query.set_tile(
             &mut commands,
@@ -80,11 +89,9 @@ pub fn build_belt(
             MapLayer::Buildings,
         ) {
             if let Some((last_e, last_pos)) = *last_placed {
-                if let Some(mut last_tile) = tiles
-                    .get_mut(last_e)
-                    .ok()
-                    .filter(|t| update_last_belt && BuildingTileType::from(**t).is_belt())
-                {
+                if let Some(mut last_tile) = tiles.get_mut(last_e).ok().filter(|t| {
+                    update_last_belt && BuildingTileType::from(t.texture_index).is_belt()
+                }) {
                     last_tile.texture_index = belt_dir as u16;
                     map_query.notify_chunk_for_tile(
                         last_pos,
@@ -104,6 +111,29 @@ pub fn build_belt(
     }
 }
 
+fn belt_dir_between(
+    TilePos(x1, y1): TilePos,
+    TilePos(x2, y2): TilePos,
+) -> Option<BuildingTileType> {
+    if x1 > 0 && (x2 == x1 - 1) && (y2 == y1) {
+        return Some(BuildingTileType::BeltRight);
+    }
+
+    if (x2 == x1 + 1) && (y2 == y1) {
+        return Some(BuildingTileType::BeltLeft);
+    }
+
+    if y1 > 0 && (x2 == x1) && y2 == (y1 - 1) {
+        return Some(BuildingTileType::BeltUp);
+    }
+
+    if (x2 == x1) && (y2 == y1 + 1) {
+        return Some(BuildingTileType::BeltDown);
+    }
+
+    None
+}
+
 pub fn move_items_on_belts(
     // mut commands: Commands,
     mut items: Query<&mut Transform, With<Item>>,
@@ -114,29 +144,28 @@ pub fn move_items_on_belts(
     time: Res<Time>,
 ) {
     for (belt_entity, belt_pos, belt_tile) in belt_tiles.iter() {
-        let (mut belt, next_belt) =
-            match next_belt(belt_tile, *belt_pos, &mut map_query, &active_map) {
-                Some((next_belt_pos, next_belt_entity)) => {
-                    match belts.get_many_mut([belt_entity, next_belt_entity]) {
-                        Ok([belt, next_belt]) => {
-                            (belt.0, Some((next_belt.0, next_belt.1, next_belt_pos)))
-                        }
-                        _ => continue,
-                    }
-                }
-                _ => {
-                    let belt = belts.get_mut(belt_entity).unwrap();
-                    (belt.0, None)
-                }
-            };
+        let (mut belt, next_belt) = if let Some(pair) = belt_pair(
+            belt_entity,
+            belt_tile,
+            *belt_pos,
+            &mut belts,
+            &mut map_query,
+            &active_map,
+        ) {
+            (pair.0, Some(pair.1))
+        } else if let Ok((belt, _)) = belts.get_mut(belt_entity) {
+            (belt, None)
+        } else {
+            continue;
+        };
 
-        if let Some((mut next_belt, next_belt_tile, next_belt_pos)) = next_belt {
+        if let Some(mut nb) = next_belt {
             move_first_item(
                 &mut belt,
                 belt_tile,
-                &mut next_belt,
-                next_belt_tile,
-                next_belt_pos,
+                &mut nb.0,
+                nb.1,
+                nb.2,
                 &active_map,
                 &mut items,
                 time.delta_seconds(),
@@ -187,26 +216,25 @@ fn calculate_world_pos(
     (world_pos + progress_offset).extend(10.)
 }
 
-fn next_belt(
+fn belt_pair<'q>(
+    belt_entity: Entity,
     belt_tile: &Tile,
-    TilePos(belt_x, belt_y): TilePos,
+    belt_pos: TilePos,
+    belts: &'q mut Query<(&mut Belt, &Tile)>,
     map_query: &mut MapQuery,
     active_map: &ActiveMap,
-) -> Option<(TilePos, Entity)> {
-    use BuildingTileType::*;
-    let next_belt_pos = match BuildingTileType::from(belt_tile.texture_index) {
-        BeltUp => TilePos(belt_x, belt_y + 1),
-        BeltDown if belt_y > 0 => TilePos(belt_x, belt_y - 1),
-        BeltLeft if belt_x > 0 => TilePos(belt_x - 1, belt_y),
-        BeltRight => TilePos(belt_x + 1, belt_y),
-        _ => return None,
-    };
-
+) -> Option<(Mut<'q, Belt>, (Mut<'q, Belt>, &'q Tile, TilePos))> {
+    let next_belt_pos = BuildingTileType::from(belt_tile.texture_index).next_belt_pos(belt_pos)?;
     let next_belt_entity = map_query
         .get_tile_entity(next_belt_pos, active_map.map_id, MapLayer::Buildings)
         .ok()?;
 
-    Some((next_belt_pos, next_belt_entity))
+    if let Ok([belt, next_belt]) = belts.get_many_mut([belt_entity, next_belt_entity]) {
+        let next_belt = (next_belt.0, next_belt.1, next_belt_pos);
+        return Some((belt.0, next_belt));
+    }
+
+    None
 }
 
 fn move_first_item(
@@ -220,17 +248,23 @@ fn move_first_item(
     active_map: &ActiveMap,
     items: &mut Query<&mut Transform, With<Item>>,
     delta: f32,
-) -> Option<()> {
-    let (first_item_entity, first_item_progress) = belt.items[0]?;
+) {
+    let Some((first_item_entity, first_item_progress)) = belt.items[0] else {
+        return;
+    };
+
     let progress = first_item_progress + delta;
 
     if progress > 1. {
-        let next_belt_start = next_belt_start(belt_tile, next_belt_tile)?;
+        let Some(next_belt_start) = BuildingTileType::from(belt_tile.texture_index).next_belt_start(next_belt_tile.texture_index) else {
+            return;
+        };
+
         let next_belt_progress = (progress - 1.0 + next_belt_start).clamp(0., 1.);
 
-        let slot = next_belt.space(next_belt_progress)?;
-
-        *slot = Some((first_item_entity, next_belt_progress));
+        if !next_belt.place(next_belt_progress, first_item_entity) {
+            return;
+        }
 
         if let Ok(mut transform) = items.get_mut(first_item_entity) {
             transform.translation =
@@ -239,22 +273,5 @@ fn move_first_item(
 
         belt.items.rotate_left(1);
         belt.items[2] = None;
-
-        Some(())
-    } else {
-        None
-    }
-}
-
-fn next_belt_start(belt_tile: &Tile, next_belt_tile: &Tile) -> Option<f32> {
-    use BuildingTileType::*;
-    match (
-        belt_tile.texture_index.into(),
-        next_belt_tile.texture_index.into(),
-    ) {
-        (BeltDown | BeltUp, BeltLeft | BeltRight) => Some(0.5),
-        (BeltLeft | BeltRight, BeltDown | BeltUp) => Some(0.5),
-        (x, y) if x == y => Some(0.0),
-        _ => None,
     }
 }

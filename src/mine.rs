@@ -84,8 +84,8 @@ pub fn mine_produce(
                 .flatten()
             {
                 if let Ok((belt_entity, mut belt)) = belts.get_mut(e) {
-                    if let Some(slot) = belt.space(0.33) {
-                        let item_entity = commands
+                    if belt.place_new(0.33, || {
+                        commands
                             .spawn_bundle(SpriteBundle {
                                 transform: Transform::from_xyz(0., 0., -9999.),
                                 texture: asset_server.load("items.png"),
@@ -95,9 +95,8 @@ pub fn mine_produce(
                                 belt: belt_entity,
                                 progress: 0.,
                             })
-                            .id();
-
-                        *slot = Some((item_entity, 0.));
+                            .id()
+                    }) {
                         break;
                     }
                 }

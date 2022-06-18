@@ -1,3 +1,5 @@
+#![feature(let_else)]
+
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
