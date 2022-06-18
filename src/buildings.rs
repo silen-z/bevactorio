@@ -4,6 +4,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::input::MapCursorPos;
 use crate::map::{ActiveMap, BuildingTileType, MapLayer};
+use crate::ui::UiInteraction;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BuildingType {
@@ -21,7 +22,7 @@ pub struct BuildingTile {
     pub building_entity: Entity,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum SelectedTool {
     None,
     Building(BuildingType),
@@ -104,6 +105,7 @@ pub fn update_build_guide(
     selected_tool: Res<SelectedTool>,
     build_events: EventReader<BuildEvent>,
     demolish_events: EventReader<DemolishEvent>,
+    ui_interaction: Res<UiInteraction>,
 ) {
     if !mouse_pos.is_changed()
         && !selected_tool.is_changed()
@@ -121,6 +123,10 @@ pub fn update_build_guide(
             MapLayer::BuildGuide,
         );
         map_query.notify_chunk_for_tile(*tile_pos, active_map.map_id, MapLayer::BuildGuide);
+    }
+
+    if ui_interaction.0 {
+        return;
     }
 
     if let Some(tile_pos) = mouse_pos.0 {

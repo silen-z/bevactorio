@@ -4,30 +4,34 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct MainCamera;
 
+#[derive(Default)]
+pub struct Zoom(pub f32);
+
 // A simple camera system for moving and zooming the camera.
 pub fn camera_movement(
-    time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut scroll_evr: EventReader<MouseWheel>,
     mut query: Query<(&mut Transform, &mut OrthographicProjection), With<MainCamera>>,
+    mut zoom: ResMut<Zoom>,
+    time: Res<Time>,
 ) {
     let (mut transform, mut ortho) = query.single_mut();
 
     let mut direction = Vec3::ZERO;
 
-    if keyboard_input.pressed(KeyCode::A) {
+    if keyboard_input.pressed(KeyCode::Left) {
         direction -= Vec3::new(1.0, 0.0, 0.0);
     }
 
-    if keyboard_input.pressed(KeyCode::D) {
+    if keyboard_input.pressed(KeyCode::Right) {
         direction += Vec3::new(1.0, 0.0, 0.0);
     }
 
-    if keyboard_input.pressed(KeyCode::W) {
+    if keyboard_input.pressed(KeyCode::Up) {
         direction += Vec3::new(0.0, 1.0, 0.0);
     }
 
-    if keyboard_input.pressed(KeyCode::S) {
+    if keyboard_input.pressed(KeyCode::Down) {
         direction -= Vec3::new(0.0, 1.0, 0.0);
     }
 
@@ -46,6 +50,8 @@ pub fn camera_movement(
     if ortho.scale < 0.25 {
         ortho.scale = 0.25;
     }
+
+    zoom.0 = ortho.scale;
 
     let z = transform.translation.z;
     transform.translation += time.delta_seconds() * direction * 500.;

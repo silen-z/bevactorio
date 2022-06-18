@@ -2,6 +2,9 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
+use crate::buildings::Building;
+use crate::camera::Zoom;
+
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 #[repr(u16)]
 pub enum MapLayer {
@@ -217,6 +220,11 @@ impl FromWorld for ActiveMap {
     }
 }
 
+pub enum MapEvent {
+    ToggleGrid,
+    ClearBuildings,
+}
+
 pub enum GridState {
     Enabled,
     Disabled,
@@ -237,14 +245,54 @@ impl GridState {
     }
 }
 
+pub fn clear_buildings(
+    mut commands: Commands,
+    mut map_events: EventReader<MapEvent>,
+    mut map_query: MapQuery,
+    buildings: Query<Entity, With<Building>>,
+    active_map: Res<ActiveMap>,
+) {
+    if map_events
+        .iter()
+        .any(|e| matches!(e, MapEvent::ClearBuildings))
+    {
+        for building_entity in buildings.iter() {
+            commands.entity(building_entity).despawn();
+        }
+
+        map_query.despawn_layer_tiles(&mut commands, active_map.map_id, MapLayer::Buildings);
+
+        if let Some((_, layer)) = map_query.get_layer(active_map.map_id, MapLayer::Buildings) {
+            let chunks = (0..layer.settings.map_size.0)
+                .flat_map(|x| (0..layer.settings.map_size.1).map(move |y| (x, y)))
+                .flat_map(|(x, y)| layer.get_chunk(ChunkPos(x, y)))
+                .collect::<Vec<_>>();
+
+            for chunk in chunks {
+                map_query.notify_chunk(chunk);
+            }
+        }
+    }
+}
+
+const MAX_GRID_ZOOM: f32 = 2.;
+
 pub fn toggle_grid(
     mut layers: Query<&mut Transform>,
     mut map_query: MapQuery,
-    grid_state: Res<GridState>,
-
+    mut map_events: EventReader<MapEvent>,
+    mut grid_state: ResMut<GridState>,
+    zoom: Res<Zoom>,
     active_map: Res<ActiveMap>,
 ) {
-    if !grid_state.is_changed() {
+    for _ in map_events
+        .iter()
+        .filter(|e| matches!(e, MapEvent::ToggleGrid))
+    {
+        grid_state.toggle();
+    }
+
+    if !grid_state.is_changed() && !zoom.is_changed() {
         return;
     }
 
@@ -253,8 +301,8 @@ pub fn toggle_grid(
         .and_then(|(e, _)| layers.get_mut(e).ok())
     {
         transform.translation.z = match *grid_state {
-            GridState::Enabled => u16::from(MapLayer::Grid) as f32,
-            GridState::Disabled => -10.0,
+            GridState::Enabled if zoom.0 < MAX_GRID_ZOOM => u16::from(MapLayer::Grid) as f32,
+            _ => -10.0,
         };
     }
 }

@@ -4,20 +4,22 @@ use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::buildings::{BuildEvent, DemolishEvent, SelectedTool};
+use crate::buildings::{BuildEvent, BuildingType, DemolishEvent, SelectedTool};
 use crate::camera::MainCamera;
-use crate::map::{ActiveMap, GridState, MapLayer};
+use crate::map::{ActiveMap, MapEvent};
+use crate::ui::UiInteraction;
 
 pub fn handle_mouse_input(
     mouse: Res<Input<MouseButton>>,
     map_pos: Res<WorldCursorPos>,
     mut build_events: EventWriter<BuildEvent>,
     mut demolish_events: EventWriter<DemolishEvent>,
+    ui_interaction: Res<UiInteraction>,
     selected_building: Res<SelectedTool>,
     active_map: Res<ActiveMap>,
 ) {
     if let Some(tile_pos) = map_pos.and_then(|cursor_pos| active_map.to_tile_pos(cursor_pos)) {
-        if mouse.pressed(MouseButton::Left) {
+        if mouse.pressed(MouseButton::Left) && !ui_interaction.0 {
             match *selected_building {
                 SelectedTool::Building(building_type) => {
                     build_events.send(BuildEvent {
@@ -36,25 +38,10 @@ pub fn handle_mouse_input(
     }
 }
 
-// pub fn handle_wheel_input(
-//     mut scroll_evr: EventReader<MouseWheel>,
-//     mut selected_building: ResMut<SelectedBuilding>,
-// ) {
-//     for event in scroll_evr.iter() {
-//         match event.y {
-//             y if y < 0. => selected_building.prev(),
-//             y if y > 0. => selected_building.next(),
-//             _ => {}
-//         };
-//     }
-// }
-
 pub fn handle_keyboard_input(
-    mut commands: Commands,
     mut key_events: EventReader<KeyboardInput>,
-    mut map_query: MapQuery,
-    active_map: Res<ActiveMap>,
-    mut grid_state: ResMut<GridState>,
+    mut map_events: EventWriter<MapEvent>,
+    mut selected_tool: ResMut<SelectedTool>,
 ) {
     for event in key_events.iter() {
         match event {
@@ -62,31 +49,32 @@ pub fn handle_keyboard_input(
                 state: ElementState::Pressed,
                 key_code: Some(KeyCode::G),
                 ..
-            } => grid_state.toggle(),
+            } => map_events.send(MapEvent::ToggleGrid),
 
             KeyboardInput {
                 state: ElementState::Pressed,
                 key_code: Some(KeyCode::C),
                 ..
-            } => {
-                map_query.despawn_layer_tiles(
-                    &mut commands,
-                    active_map.map_id,
-                    MapLayer::Buildings,
-                );
-                if let Some((_, layer)) =
-                    map_query.get_layer(active_map.map_id, MapLayer::Buildings)
-                {
-                    let chunks = (0..layer.settings.map_size.0)
-                        .flat_map(|x| (0..layer.settings.map_size.1).map(move |y| (x, y)))
-                        .flat_map(|(x, y)| layer.get_chunk(ChunkPos(x, y)))
-                        .collect::<Vec<_>>();
+            } => map_events.send(MapEvent::ClearBuildings),
 
-                    for chunk in chunks {
-                        map_query.notify_chunk(chunk);
-                    }
-                }
-            }
+            KeyboardInput {
+                state: ElementState::Pressed,
+                key_code: Some(KeyCode::M),
+                ..
+            } => *selected_tool = SelectedTool::Building(BuildingType::Mine),
+
+            KeyboardInput {
+                state: ElementState::Pressed,
+                key_code: Some(KeyCode::B),
+                ..
+            } => *selected_tool = SelectedTool::Building(BuildingType::Belt),
+
+            KeyboardInput {
+                state: ElementState::Pressed,
+                key_code: Some(KeyCode::D),
+                ..
+            } => *selected_tool = SelectedTool::Buldozer,
+
             _ => {}
         }
     }

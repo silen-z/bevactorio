@@ -8,14 +8,16 @@ use crate::belts::{build_belt, move_items_on_belts};
 use crate::buildings::{
     demolish_building, update_build_guide, BuildEvent, DemolishEvent, SelectedTool,
 };
-use crate::camera::{camera_movement, MainCamera};
+use crate::camera::{camera_movement, MainCamera, Zoom};
 use crate::input::{
     handle_keyboard_input, handle_mouse_input, map_cursor_pos, world_cursor_pos, MapCursorPos,
     WorldCursorPos,
 };
-use crate::map::{toggle_grid, ActiveMap, GridState};
+use crate::map::{clear_buildings, toggle_grid, ActiveMap, GridState, MapEvent};
 use crate::mine::{build_mine, mine_produce};
-use crate::ui::{handle_select_tool, init_ui};
+use crate::ui::{
+    handle_select_tool, highlight_selected_tool, init_ui, track_ui_interaction, UiInteraction,
+};
 
 mod belts;
 mod buildings;
@@ -50,6 +52,7 @@ fn main() {
     let in_game_systems = SystemSet::on_in_stack_update(AppState::InGame)
         .with_system(world_cursor_pos)
         .with_system(map_cursor_pos)
+        .with_system(track_ui_interaction)
         .with_system(handle_mouse_input)
         .with_system(handle_keyboard_input)
         .with_system(camera_movement)
@@ -63,7 +66,9 @@ fn main() {
 
     let build_mode = SystemSet::on_update(AppState::BuildMode)
         .with_system(update_build_guide)
-        .with_system(handle_select_tool);
+        .with_system(handle_select_tool)
+        .with_system(clear_buildings)
+        .with_system(highlight_selected_tool);
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -76,9 +81,12 @@ fn main() {
         .init_resource::<WorldCursorPos>()
         .init_resource::<MapCursorPos>()
         .init_resource::<GridState>()
+        .init_resource::<UiInteraction>()
+        .init_resource::<Zoom>()
         .insert_resource(window_settings)
         .add_event::<BuildEvent>()
         .add_event::<DemolishEvent>()
+        .add_event::<MapEvent>()
         .add_startup_system(startup)
         .add_startup_system(init_ui)
         .add_system_set(in_game_systems)
