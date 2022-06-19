@@ -1,4 +1,5 @@
 #![feature(let_else)]
+#![feature(let_chains)]
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -6,7 +7,8 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::belts::{build_belt, move_items_on_belts};
 use crate::buildings::{
-    demolish_building, update_build_guide, BuildEvent, DemolishEvent, SelectedTool,
+    demolish_building, highlight_demolition, update_build_guide, BuildEvent, DemolishEvent,
+    SelectedTool,
 };
 use crate::camera::{camera_movement, MainCamera, Zoom};
 use crate::input::{
@@ -16,7 +18,7 @@ use crate::input::{
 use crate::map::{clear_buildings, toggle_grid, ActiveMap, GridState, MapEvent};
 use crate::mine::{build_mine, mine_produce};
 use crate::ui::{
-    handle_select_tool, highlight_selected_tool, init_ui, track_ui_interaction, UiInteraction,
+    handle_select_tool, highlight_selected_tool, init_ui, track_ui_interaction, MapInteraction,
 };
 
 mod belts;
@@ -46,7 +48,7 @@ fn main() {
         width: 1270.0,
         height: 720.0,
         title: String::from("Bevactorio"),
-        ..Default::default()
+        ..default()
     };
 
     let in_game_systems = SystemSet::on_in_stack_update(AppState::InGame)
@@ -68,7 +70,8 @@ fn main() {
         .with_system(update_build_guide)
         .with_system(handle_select_tool)
         .with_system(clear_buildings)
-        .with_system(highlight_selected_tool);
+        .with_system(highlight_selected_tool)
+        .with_system(highlight_demolition.after(highlight_selected_tool));
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -81,7 +84,7 @@ fn main() {
         .init_resource::<WorldCursorPos>()
         .init_resource::<MapCursorPos>()
         .init_resource::<GridState>()
-        .init_resource::<UiInteraction>()
+        .init_resource::<MapInteraction>()
         .init_resource::<Zoom>()
         .insert_resource(window_settings)
         .add_event::<BuildEvent>()

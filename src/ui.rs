@@ -135,7 +135,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 pub fn handle_select_tool(
-    actions: Query<(&SelectToolAction, &Interaction)>,
+    actions: Query<(&SelectToolAction, &Interaction), Changed<Interaction>>,
     mut selected_building: ResMut<SelectedTool>,
 ) {
     if let Some((action, _)) = actions
@@ -151,34 +151,42 @@ pub fn highlight_selected_tool(
     mut elements: Query<(Entity, &mut UiColor, &SelectToolAction)>,
     mut highlighted_nodes: Local<Vec<(Entity, UiColor)>>,
 ) {
-    if !selected_tool.is_changed() {
-        return;
-    }
-
-    for (entity, previous_color) in highlighted_nodes.drain(..) {
-        if let Ok((_, mut color, _)) = elements.get_mut(entity) {
-            *color = previous_color;
+    if selected_tool.is_changed() {
+        // clear highlights
+        for (entity, previous_color) in highlighted_nodes.drain(..) {
+            if let Ok((_, mut color, _)) = elements.get_mut(entity) {
+                *color = previous_color;
+            }
         }
-    }
 
-    for (entity, mut color, action) in elements.iter_mut() {
-        if action.0 == *selected_tool {
-            highlighted_nodes.push((entity, *color));
-            *color = Color::GRAY.into();
+        // apply new highlights
+        for (entity, mut color, action) in elements.iter_mut() {
+            if action.0 == *selected_tool {
+                highlighted_nodes.push((entity, *color));
+                *color = Color::GRAY.into();
+            }
         }
     }
 }
 
 #[derive(Default)]
-pub struct UiInteraction(pub bool);
+pub struct MapInteraction(bool);
+
+impl MapInteraction {
+    pub fn is_allowed(&self) -> bool {
+        self.0
+    }
+}
 
 pub fn track_ui_interaction(
     ui_components: Query<&Interaction>,
-    mut is_interacting: ResMut<UiInteraction>,
+    mut map_interaction: ResMut<MapInteraction>,
 ) {
-    is_interacting.0 = ui_components
+    let is_interacting_with_ui = ui_components
         .iter()
         .any(|i| matches!(i, Interaction::Clicked | Interaction::Hovered));
+
+    map_interaction.0 = !is_interacting_with_ui;
 }
 
 const HELP_TEXT: &str = r#"
