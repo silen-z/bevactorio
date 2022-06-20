@@ -68,6 +68,22 @@ impl BuildingTileType {
             _ => None,
         }
     }
+
+    pub fn progress_offset(&self, progress: f32) -> Vec2 {
+        use BuildingTileType::*;
+
+        fn lerp(n1: f32, n2: f32, scalar: f32) -> f32 {
+            n1 + (n2 - n1) * scalar
+        }
+
+        match self {
+            BeltUp => Vec2::new(8., lerp(0., 16., progress)),
+            BeltDown => Vec2::new(8., lerp(16., 0., progress)),
+            BeltLeft => Vec2::new(lerp(16., 0., progress), 8.),
+            BeltRight => Vec2::new(lerp(0., 16., progress), 8.),
+            _ => panic!("not a belt"),
+        }
+    }
 }
 
 pub struct ActiveMap {
@@ -119,8 +135,8 @@ impl FromWorld for ActiveMap {
         let map_id = 0u16;
         let mut map = Map::new(map_id, map_entity);
 
-        let map_size = MapSize(3, 3);
-        let chunk_size = ChunkSize(16, 16);
+        let map_size = MapSize(1, 1);
+        let chunk_size = ChunkSize(64, 64);
         let tile_size = TileSize(16.0, 16.0);
 
         let layer_settings =

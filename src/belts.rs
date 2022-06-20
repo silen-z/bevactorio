@@ -135,7 +135,6 @@ fn belt_dir_between(
 }
 
 pub fn move_items_on_belts(
-    // mut commands: Commands,
     mut items: Query<&mut Transform, With<Item>>,
     belt_tiles: Query<(Entity, &TilePos, &Tile), With<Belt>>,
     mut belts: Query<(&mut Belt, &Tile)>,
@@ -144,33 +143,25 @@ pub fn move_items_on_belts(
     time: Res<Time>,
 ) {
     for (belt_entity, belt_pos, belt_tile) in belt_tiles.iter() {
-        let (mut belt, next_belt) = if let Some(pair) = belt_pair(
-            belt_entity,
-            belt_tile,
-            *belt_pos,
-            &mut belts,
-            &mut map_query,
-            &active_map,
-        ) {
-            (pair.0, Some(pair.1))
-        } else if let Ok((belt, _)) = belts.get_mut(belt_entity) {
-            (belt, None)
-        } else {
-            continue;
-        };
+        let building_type = BuildingTileType::from(belt_tile.texture_index);
 
-        if let Some(mut nb) = next_belt {
-            move_first_item(
-                &mut belt,
-                belt_tile,
-                &mut nb.0,
-                nb.1,
-                nb.2,
-                &active_map,
+        let belt_output_pos = building_type.next_belt_pos(*belt_pos);
+
+        if let Some(next_pos) = belt_output_pos {
+            try_move_item_between_belts(
+                belt_entity,
+                next_pos,
+                &mut map_query,
+                &mut belts,
                 &mut items,
+                &active_map,
                 time.delta_seconds(),
             );
         }
+
+        let Ok((mut belt, _)) = belts.get_mut(belt_entity) else {
+            continue;
+        };
 
         let mut max_progress = 1.0f32;
 
@@ -184,94 +175,59 @@ pub fn move_items_on_belts(
             max_progress = next_progress - ITEM_SIZE;
 
             if let Ok(mut transform) = items.get_mut(*item_entity) {
-                transform.translation =
-                    calculate_world_pos(&active_map, belt_tile, *belt_pos, *item_progress);
+                let world_pos = active_map.to_world_pos(*belt_pos);
+                let offset = building_type.progress_offset(*item_progress);
+
+                transform.translation = (world_pos + offset).extend(10.);
             }
         }
     }
 }
 
-fn calculate_world_pos(
-    active_map: &ActiveMap,
-    tile: &Tile,
-    tile_pos: TilePos,
-    progress: f32,
-) -> Vec3 {
-    use BuildingTileType::*;
-
-    fn lerp(n1: f32, n2: f32, scalar: f32) -> f32 {
-        n1 + (n2 - n1) * scalar
-    }
-
-    let world_pos = active_map.to_world_pos(tile_pos);
-
-    let progress_offset = match BuildingTileType::from(tile.texture_index) {
-        BeltUp => Vec2::new(8., lerp(0., 16., progress)),
-        BeltDown => Vec2::new(8., lerp(16., 0., progress)),
-        BeltLeft => Vec2::new(lerp(16., 0., progress), 8.),
-        BeltRight => Vec2::new(lerp(0., 16., progress), 8.),
-        _ => panic!("not a belt"),
-    };
-
-    (world_pos + progress_offset).extend(10.)
-}
-
-fn belt_pair<'q>(
+fn try_move_item_between_belts(
     belt_entity: Entity,
-    belt_tile: &Tile,
-    belt_pos: TilePos,
-    belts: &'q mut Query<(&mut Belt, &Tile)>,
-    map_query: &mut MapQuery,
-    active_map: &ActiveMap,
-) -> Option<(Mut<'q, Belt>, (Mut<'q, Belt>, &'q Tile, TilePos))> {
-    let next_belt_pos = BuildingTileType::from(belt_tile.texture_index).next_belt_pos(belt_pos)?;
-    let next_belt_entity = map_query
-        .get_tile_entity(next_belt_pos, active_map.map_id, MapLayer::Buildings)
-        .ok()?;
-
-    if let Ok([belt, next_belt]) = belts.get_many_mut([belt_entity, next_belt_entity]) {
-        let next_belt = (next_belt.0, next_belt.1, next_belt_pos);
-        return Some((belt.0, next_belt));
-    }
-
-    None
-}
-
-fn move_first_item(
-    belt: &mut Belt,
-    belt_tile: &Tile,
-
-    next_belt: &mut Belt,
-    next_belt_tile: &Tile,
     next_belt_pos: TilePos,
-
-    active_map: &ActiveMap,
+    map_query: &mut MapQuery,
+    belts: &mut Query<(&mut Belt, &Tile)>,
     items: &mut Query<&mut Transform, With<Item>>,
+    active_map: &ActiveMap,
     delta: f32,
 ) {
-    let Some((first_item_entity, first_item_progress)) = belt.items[0] else {
+    let Ok(next_belt_entity) = map_query.get_tile_entity(next_belt_pos, active_map.map_id, MapLayer::Buildings) else {
+        return;
+    };
+
+    let Ok([mut belt, mut next_belt]) = belts.get_many_mut([belt_entity, next_belt_entity]) else {
+        return;
+    };
+
+    let Some((first_item_entity, first_item_progress)) = belt.0.items[0] else {
         return;
     };
 
     let progress = first_item_progress + delta;
 
     if progress > 1. {
-        let Some(next_belt_start) = BuildingTileType::from(belt_tile.texture_index).next_belt_start(next_belt_tile.texture_index) else {
+        let next_belt_type = BuildingTileType::from(next_belt.1.texture_index);
+
+        let Some(next_belt_start) = BuildingTileType::from(belt.1.texture_index).next_belt_start(next_belt_type) else {
             return;
         };
 
         let next_belt_progress = (progress - 1.0 + next_belt_start).clamp(0., 1.);
 
-        if !next_belt.place(next_belt_progress, first_item_entity) {
+        if !next_belt.0.place(next_belt_progress, first_item_entity) {
             return;
         }
 
         if let Ok(mut transform) = items.get_mut(first_item_entity) {
-            transform.translation =
-                calculate_world_pos(&active_map, belt_tile, next_belt_pos, next_belt_progress);
+            let world_pos = active_map.to_world_pos(next_belt_pos);
+            let offset = next_belt_type.progress_offset(next_belt_progress);
+
+            transform.translation = (world_pos + offset).extend(10.);
         }
 
-        belt.items.rotate_left(1);
-        belt.items[2] = None;
+        belt.0.items.rotate_left(1);
+        belt.0.items[2] = None;
     }
 }

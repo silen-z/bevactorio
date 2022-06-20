@@ -71,7 +71,7 @@ fn main() {
         .with_system(handle_select_tool)
         .with_system(clear_buildings)
         .with_system(highlight_selected_tool)
-        .with_system(highlight_demolition.after(highlight_selected_tool));
+        .with_system(highlight_demolition.after(update_build_guide));
 
     App::new()
         .add_plugins(DefaultPlugins)
