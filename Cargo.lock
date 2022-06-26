@@ -179,7 +179,6 @@ dependencies = [
  "arrayvec",
  "bevy",
  "bevy_ecs_tilemap",
- "rand",
 ]
 
 [[package]]

@@ -1,3 +1,5 @@
+use std::num::ParseIntError;
+
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
@@ -24,6 +26,7 @@ pub enum TerrainType {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u16)]
+#[allow(dead_code)]
 pub enum BuildingTileType {
     BeltUp = 0,
     BeltDown = 1,
@@ -34,6 +37,7 @@ pub enum BuildingTileType {
     MineBottomLeft = 6,
     MineBottomRight = 7,
     Explosion = 8,
+    Crate = 9,
     Unknown = u16::MAX,
 }
 
@@ -332,11 +336,20 @@ impl From<MapLayer> for u16 {
 impl From<u16> for BuildingTileType {
     fn from(texture_index: u16) -> Self {
         match texture_index {
-            x if x >= BuildingTileType::BeltUp as u16
-                && x <= BuildingTileType::MineBottomRight as u16 =>
-            unsafe { std::mem::transmute(x) },
+            x if x >= BuildingTileType::BeltUp as u16 && x <= BuildingTileType::Crate as u16 => unsafe {
+                std::mem::transmute(x)
+            },
             _ => Self::Unknown,
         }
+    }
+}
+
+impl std::str::FromStr for BuildingTileType {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let tile_index: u16 = s.parse()?;
+        Ok(tile_index.into())
     }
 }
 

@@ -3,7 +3,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::BuildingType;
 use crate::map::{ActiveMap, BuildingTileType, MapLayer};
-use crate::BuildEvent;
+use crate::BuildRequestedEvent;
 
 #[derive(Component)]
 pub struct Belt {
@@ -45,7 +45,7 @@ pub fn build_belt(
     mut commands: Commands,
     mut map_query: MapQuery,
     mut tiles: Query<&mut Tile>,
-    mut events: EventReader<BuildEvent>,
+    mut events: EventReader<BuildRequestedEvent>,
     mut last_placed: Local<Option<(Entity, TilePos)>>,
     active_map: Res<ActiveMap>,
 ) {

@@ -6,9 +6,11 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::belts::{build_belt, move_items_on_belts};
+use crate::buildings::mine::{build_mine, mine_produce};
+use crate::buildings::templates::BuildingTemplates;
 use crate::buildings::{
-    demolish_building, highlight_demolition, update_build_guide, BuildEvent, DemolishEvent,
-    SelectedTool,
+    build_building, demolish_building, highlight_demolition, update_build_guide,
+    BuildRequestedEvent, BuildingBuiltEvent, DemolishEvent, SelectedTool,
 };
 use crate::camera::{camera_movement, MainCamera, Zoom};
 use crate::input::{
@@ -16,7 +18,6 @@ use crate::input::{
     WorldCursorPos,
 };
 use crate::map::{clear_buildings, toggle_grid, ActiveMap, GridState, MapEvent};
-use crate::mine::{build_mine, mine_produce};
 use crate::ui::{
     handle_select_tool, highlight_selected_tool, init_ui, track_ui_interaction, MapInteraction,
 };
@@ -26,7 +27,6 @@ mod buildings;
 mod camera;
 mod input;
 mod map;
-mod mine;
 mod ui;
 
 fn startup(mut commands: Commands, mut app_state: ResMut<State<AppState>>) {
@@ -60,7 +60,6 @@ fn main() {
         .with_system(camera_movement)
         .with_system(toggle_grid.after(handle_keyboard_input))
         .with_system(build_belt.after(handle_mouse_input))
-        .with_system(build_mine.after(handle_mouse_input))
         .with_system(demolish_building.after(handle_mouse_input))
         .with_system(mine_produce)
         .with_system(move_items_on_belts.after(mine_produce))
@@ -71,7 +70,9 @@ fn main() {
         .with_system(handle_select_tool)
         .with_system(clear_buildings)
         .with_system(highlight_selected_tool)
-        .with_system(highlight_demolition.after(update_build_guide));
+        .with_system(highlight_demolition.after(update_build_guide))
+        .with_system(build_building)
+        .with_system(build_mine.after(build_building));
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -81,13 +82,15 @@ fn main() {
         .add_state(AppState::InGame)
         .init_resource::<ActiveMap>()
         .init_resource::<SelectedTool>()
+        .init_resource::<BuildingTemplates>()
         .init_resource::<WorldCursorPos>()
         .init_resource::<MapCursorPos>()
         .init_resource::<GridState>()
         .init_resource::<MapInteraction>()
         .init_resource::<Zoom>()
         .insert_resource(window_settings)
-        .add_event::<BuildEvent>()
+        .add_event::<BuildRequestedEvent>()
+        .add_event::<BuildingBuiltEvent>()
         .add_event::<DemolishEvent>()
         .add_event::<MapEvent>()
         .add_startup_system(startup)

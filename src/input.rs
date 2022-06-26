@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::buildings::{BuildEvent, BuildingType, DemolishEvent, SelectedTool};
+use crate::buildings::{BuildRequestedEvent, BuildingType, DemolishEvent, SelectedTool};
 use crate::camera::MainCamera;
 use crate::map::{ActiveMap, MapEvent};
 use crate::ui::MapInteraction;
@@ -12,7 +12,7 @@ use crate::ui::MapInteraction;
 pub fn handle_mouse_input(
     mouse: Res<Input<MouseButton>>,
     map_pos: Res<WorldCursorPos>,
-    mut build_events: EventWriter<BuildEvent>,
+    mut build_events: EventWriter<BuildRequestedEvent>,
     mut demolish_events: EventWriter<DemolishEvent>,
     map_interaction: Res<MapInteraction>,
     selected_building: Res<SelectedTool>,
@@ -22,7 +22,7 @@ pub fn handle_mouse_input(
         if mouse.pressed(MouseButton::Left) && map_interaction.is_allowed() {
             match *selected_building {
                 SelectedTool::Building(building_type) => {
-                    build_events.send(BuildEvent {
+                    build_events.send(BuildRequestedEvent {
                         building_type,
                         tile_pos,
                     });
