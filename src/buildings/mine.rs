@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use super::{BuildingBuiltEvent, BuildingType};
-use crate::belts::{Belt, Item};
+use crate::belts::{Belt, Item, ItemType};
 use crate::map::{ActiveMap, BuildingTileType, MapLayer};
 
 #[derive(Component)]
@@ -62,7 +62,7 @@ pub fn mine_produce(
                             })
                             .insert(Item {
                                 belt: belt_entity,
-                                progress: 0.,
+                                item_type: ItemType::Coal,
                             })
                             .id()
                     }) {

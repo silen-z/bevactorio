@@ -37,7 +37,7 @@ pub enum BuildingTileType {
     MineBottomLeft = 6,
     MineBottomRight = 7,
     Explosion = 8,
-    Crate = 9,
+    Chest = 9,
     Unknown = u16::MAX,
 }
 
@@ -128,7 +128,7 @@ impl FromWorld for ActiveMap {
         let terrain_texture_size = TextureSize(16.0, 16.0);
 
         let buildings_texture = asset_server.load("tilesets/buildings.png");
-        let building_texture_size = TextureSize(16.0 * 9., 16.0);
+        let building_texture_size = TextureSize(16.0 * 10., 16.0);
 
         let grid_texture = asset_server.load("tilesets/grid.png");
         let grid_texture_size = TextureSize(16.0, 16.0);
@@ -336,7 +336,7 @@ impl From<MapLayer> for u16 {
 impl From<u16> for BuildingTileType {
     fn from(texture_index: u16) -> Self {
         match texture_index {
-            x if x >= BuildingTileType::BeltUp as u16 && x <= BuildingTileType::Crate as u16 => unsafe {
+            x if x >= BuildingTileType::BeltUp as u16 && x <= BuildingTileType::Chest as u16 => unsafe {
                 std::mem::transmute(x)
             },
             _ => Self::Unknown,

@@ -1,3 +1,4 @@
+use arrayvec::ArrayVec;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
@@ -33,12 +34,21 @@ impl Belt {
         }
         true
     }
+
+    pub fn pop_first(&mut self) -> Entity {
+        let popped = self.items[0].unwrap().0;
+
+        self.items.rotate_left(1);
+        self.items[2] = None;
+
+        popped
+    }
 }
 
 #[derive(Component)]
 pub struct Item {
     pub belt: Entity,
-    pub progress: f32,
+    pub item_type: ItemType,
 }
 
 pub fn build_belt(
@@ -229,5 +239,82 @@ fn try_move_item_between_belts(
 
         belt.0.items.rotate_left(1);
         belt.0.items[2] = None;
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum ItemType {
+    Coal,
+}
+
+const MAX_INVENTORY_SIZE: usize = 8 * 8;
+const STACK_SIZE: usize = 5;
+
+#[derive(Component)]
+pub struct Inventory {
+    pub slots: ArrayVec<Option<(ItemType, usize)>, MAX_INVENTORY_SIZE>,
+}
+
+impl Inventory {
+    pub fn insert(&mut self, amount: usize, item_type: ItemType) -> bool {
+        let Some(slot) = self
+            .slots
+            .iter_mut()
+            .find(|s| s.map_or(true, |s| s.0 == item_type && s.1 + amount <= STACK_SIZE)) else {
+            return false;
+        };
+
+        *slot = match slot {
+            Some((_, stored)) => Some((item_type, *stored + amount)),
+            None => Some((item_type, amount)),
+        };
+
+        true
+    }
+}
+
+#[derive(Component)]
+pub struct BeltInput {
+    pub inventory: Entity,
+}
+
+pub fn input_from_belts(
+    mut commands: Commands,
+    mut belts: Query<(&mut Belt, &TilePos, &Tile)>,
+    items: Query<&Item>,
+    mut inventories: Query<&mut Inventory>,
+    inputs: Query<&BeltInput>,
+    mut map_query: MapQuery,
+    active_map: Res<ActiveMap>,
+) {
+    for (mut belt, belt_pos, belt_tile) in belts.iter_mut() {
+        if belt.items[0].map_or(false, |(_, progress)| progress == 1.) {
+            let tile_type = BuildingTileType::from(belt_tile.texture_index);
+
+            let Some(next_pos) = tile_type.next_belt_pos(*belt_pos) else {
+                continue;
+            };
+
+            let Ok(entity) = map_query.get_tile_entity(next_pos, active_map.map_id, MapLayer::Buildings) else {
+                continue;
+            };
+
+            let Ok(input) = inputs.get(entity) else {
+                continue;
+            };
+
+            let Ok(mut inventory) = inventories.get_mut(input.inventory) else {
+                continue;
+            };
+
+            let Ok (item) = items.get(belt.items[0].unwrap().0) else {
+                continue;
+            };
+
+            if inventory.insert(1, item.item_type) {
+                let entity = belt.pop_first();
+                commands.entity(entity).despawn();
+            }
+        }
     }
 }

@@ -97,6 +97,12 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
         button_builder(
             menu,
+            button_text("PLACE ".to_string(), 'C', "HEST".to_string()),
+            SelectToolAction(SelectedTool::Building(BuildingType::Chest)),
+        );
+
+        button_builder(
+            menu,
             button_text("".to_string(), 'D', "EMOLISH".to_string()),
             SelectToolAction(SelectedTool::Buldozer),
         );
