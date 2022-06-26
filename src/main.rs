@@ -5,7 +5,8 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::belts::{build_belt, move_items_on_belts};
+use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
+use crate::buildings::chest::build_chest;
 use crate::buildings::mine::{build_mine, mine_produce};
 use crate::buildings::templates::BuildingTemplates;
 use crate::buildings::{
@@ -61,9 +62,10 @@ fn main() {
         .with_system(toggle_grid.after(handle_keyboard_input))
         .with_system(build_belt.after(handle_mouse_input))
         .with_system(demolish_building.after(handle_mouse_input))
-        .with_system(mine_produce)
-        .with_system(move_items_on_belts.after(mine_produce))
-        .with_system(set_texture_filters_to_nearest);
+        .with_system(mine_produce.before(move_items_on_belts))
+        .with_system(move_items_on_belts)
+        .with_system(set_texture_filters_to_nearest)
+        .with_system(input_from_belts.after(move_items_on_belts));
 
     let build_mode = SystemSet::on_update(AppState::BuildMode)
         .with_system(update_build_guide)
@@ -72,7 +74,8 @@ fn main() {
         .with_system(highlight_selected_tool)
         .with_system(highlight_demolition.after(update_build_guide))
         .with_system(build_building)
-        .with_system(build_mine.after(build_building));
+        .with_system(build_mine.after(build_building))
+        .with_system(build_chest);
 
     App::new()
         .add_plugins(DefaultPlugins)

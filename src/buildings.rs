@@ -10,11 +10,13 @@ use self::templates::BuildingTemplates;
 
 pub mod templates;
 pub mod mine;
+pub mod chest;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum BuildingType {
     Belt,
     Mine,
+    Chest
 }
 
 #[derive(Component)]

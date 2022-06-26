@@ -15,6 +15,7 @@ impl Default for BuildingTemplates {
         let mut templates = HashMap::new();
 
         templates.insert(BuildingType::Belt, BuildingTemplate::from_single(BeltUp));
+        templates.insert(BuildingType::Chest, BuildingTemplate::from_single(Chest));
         templates.insert(BuildingType::Mine, MINE_TEMPLATE.parse().unwrap());
 
         Self { templates }
