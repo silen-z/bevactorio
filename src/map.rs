@@ -7,6 +7,20 @@ use bevy_ecs_tilemap::prelude::*;
 use crate::buildings::Building;
 use crate::camera::Zoom;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum MapDirection {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl Default for MapDirection {
+    fn default() -> Self {
+        MapDirection::Down
+    }
+}
+
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 #[repr(u16)]
 pub enum MapLayer {

@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::input::MapCursorPos;
-use crate::map::{ActiveMap, BuildingTileType, MapLayer};
+use crate::map::{ActiveMap, BuildingTileType, MapLayer, MapDirection};
 use crate::ui::MapInteraction;
 
 use self::templates::BuildingTemplates;
@@ -32,7 +32,7 @@ pub struct BuildingTile {
 #[derive(Clone, PartialEq, Eq)]
 pub enum SelectedTool {
     None,
-    Building(BuildingType),
+    Build {building: BuildingType, direction: MapDirection},
     Buldozer,
 }
 
@@ -44,6 +44,7 @@ impl Default for SelectedTool {
 
 pub struct BuildRequestedEvent {
     pub building_type: BuildingType,
+    pub direction: MapDirection,
     pub tile_pos: TilePos,
 }
 
@@ -194,13 +195,13 @@ pub fn update_build_guide(
             map_query.notify_chunk_for_tile(*tile_pos, active_map.map_id, MapLayer::BuildGuide);
         }
 
-        if let SelectedTool::Building(building_type) = *selected_tool 
+        if let SelectedTool::Build {building, direction} = *selected_tool 
             && let Some(tile_pos) = mouse_pos.0 
             && map_interaction.is_allowed()
         {
-            let template = buildings.templates[&building_type].with_origin(tile_pos);
+            let template = buildings.templates[&building].with_origin(tile_pos);
 
-            let is_belt_edit = |map_query: &mut MapQuery| building_type == BuildingType::Belt && map_query
+            let is_belt_edit = |map_query: &mut MapQuery| building == BuildingType::Belt && map_query
                 .get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings)
                 .ok()
                 .and_then(|te| tiles.get(te).ok())
