@@ -6,12 +6,14 @@ use crate::buildings::BuildingType;
 use crate::map::{ActiveMap, BuildingTileType, MapLayer};
 use crate::BuildRequestedEvent;
 
+const BELT_CAPACITY: usize = 3;
+
 #[derive(Component)]
 pub struct Belt {
-    pub items: [Option<(Entity, f32)>; 3],
+    pub items: ArrayVec<(Entity, f32), BELT_CAPACITY>,
 }
 
-const ITEM_SIZE: f32 = 1. / 3.;
+const ITEM_SIZE: f32 = 1. / BELT_CAPACITY as f32;
 
 impl Belt {
     pub fn place(&mut self, pos: f32, entity: Entity) -> bool {
@@ -20,28 +22,12 @@ impl Belt {
 
     // TODO smarter placing of items on belts
     pub fn place_new(&mut self, pos: f32, entity_init: impl FnOnce() -> Entity) -> bool {
-        match self.items {
-            [None, None, None] => {
-                self.items[0] = Some((entity_init(), pos));
-            }
-            [Some((_, p)), None, None] if p > pos => {
-                self.items[1] = Some((entity_init(), pos));
-            }
-            [_, Some((_, p)), None] if p > pos => {
-                self.items[2] = Some((entity_init(), pos));
-            }
-            _ => return false,
+        if !self.items.is_full() && self.items.last().map_or(true, |(_, p)| *p > pos) {
+            self.items.push((entity_init(), pos));
+            true
+        } else {
+            false
         }
-        true
-    }
-
-    pub fn pop_first(&mut self) -> Entity {
-        let popped = self.items[0].unwrap().0;
-
-        self.items.rotate_left(1);
-        self.items[2] = None;
-
-        popped
     }
 }
 
@@ -111,9 +97,9 @@ pub fn build_belt(
                 }
             }
 
-            commands
-                .entity(placed_entity)
-                .insert(Belt { items: [None; 3] });
+            commands.entity(placed_entity).insert(Belt {
+                items: ArrayVec::new(),
+            });
 
             *last_placed = Some((placed_entity, event.tile_pos));
             map_query.notify_chunk_for_tile(event.tile_pos, active_map.map_id, MapLayer::Buildings);
@@ -175,7 +161,7 @@ pub fn move_items_on_belts(
 
         let mut max_progress = 1.0f32;
 
-        for (item_entity, item_progress) in belt.items.iter_mut().flatten() {
+        for (item_entity, item_progress) in belt.items.iter_mut() {
             let next_progress = f32::clamp(
                 *item_progress + time.delta_seconds(),
                 0.,
@@ -207,28 +193,30 @@ fn try_move_item_between_belts(
         return;
     };
 
-    let Ok([mut belt, mut next_belt]) = belts.get_many_mut([belt_entity, next_belt_entity]) else {
+    let Ok([(mut belt, belt_tile), (mut next_belt, next_belt_tile)]) = belts.get_many_mut([belt_entity, next_belt_entity]) else {
         return;
     };
 
-    let Some((first_item_entity, first_item_progress)) = belt.0.items[0] else {
+    let Some(&(first_item_entity, first_item_progress)) = belt.items.first() else {
         return;
     };
 
     let progress = first_item_progress + delta;
 
     if progress > 1. {
-        let next_belt_type = BuildingTileType::from(next_belt.1.texture_index);
+        let next_belt_type = BuildingTileType::from(next_belt_tile.texture_index);
 
-        let Some(next_belt_start) = BuildingTileType::from(belt.1.texture_index).next_belt_start(next_belt_type) else {
+        let Some(next_belt_start) = BuildingTileType::from(belt_tile.texture_index).next_belt_start(next_belt_type) else {
             return;
         };
 
         let next_belt_progress = (progress - 1.0 + next_belt_start).clamp(0., 1.);
 
-        if !next_belt.0.place(next_belt_progress, first_item_entity) {
+        if !next_belt.place(next_belt_progress, first_item_entity) {
             return;
         }
+
+        let (first_item_entity, _) = belt.items.pop_at(0).unwrap();
 
         if let Ok(mut transform) = items.get_mut(first_item_entity) {
             let world_pos = active_map.to_world_pos(next_belt_pos);
@@ -236,9 +224,6 @@ fn try_move_item_between_belts(
 
             transform.translation = (world_pos + offset).extend(10.);
         }
-
-        belt.0.items.rotate_left(1);
-        belt.0.items[2] = None;
     }
 }
 
@@ -288,7 +273,11 @@ pub fn input_from_belts(
     active_map: Res<ActiveMap>,
 ) {
     for (mut belt, belt_pos, belt_tile) in belts.iter_mut() {
-        if belt.items[0].map_or(false, |(_, progress)| progress == 1.) {
+        let Some((item_entity, progress)) = belt.items.first() else {
+            continue;
+        };
+
+        if *progress == 1. {
             let tile_type = BuildingTileType::from(belt_tile.texture_index);
 
             let Some(next_pos) = tile_type.next_belt_pos(*belt_pos) else {
@@ -307,12 +296,12 @@ pub fn input_from_belts(
                 continue;
             };
 
-            let Ok (item) = items.get(belt.items[0].unwrap().0) else {
+            let Ok (item) = items.get(*item_entity) else {
                 continue;
             };
 
             if inventory.insert(1, item.item_type) {
-                let entity = belt.pop_first();
+                let (entity, _) = belt.items.pop_at(0).unwrap();
                 commands.entity(entity).despawn();
             }
         }
