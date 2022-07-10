@@ -88,7 +88,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             button_text("LAY ".to_string(), 'B', "ELTS".to_string()),
             SelectToolAction(SelectedTool::Build {
                 building: BuildingType::Belt,
-                direction: default()
+                direction: default(),
             }),
         );
 
@@ -97,7 +97,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             button_text("BUILD ".to_string(), 'M', "INE".to_string()),
             SelectToolAction(SelectedTool::Build {
                 building: BuildingType::Mine,
-                direction: default()
+                direction: default(),
             }),
         );
 
@@ -106,7 +106,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             button_text("PLACE ".to_string(), 'C', "HEST".to_string()),
             SelectToolAction(SelectedTool::Build {
                 building: BuildingType::Chest,
-                direction: default()
+                direction: default(),
             }),
         );
 
