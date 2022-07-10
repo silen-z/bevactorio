@@ -6,7 +6,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::{BuildRequestedEvent, BuildingType, DemolishEvent, SelectedTool};
 use crate::camera::MainCamera;
-use crate::map::{ActiveMap, MapDirection, MapEvent};
+use crate::map::{ActiveMap, MapEvent};
 use crate::ui::MapInteraction;
 
 pub fn handle_mouse_input(
@@ -21,7 +21,10 @@ pub fn handle_mouse_input(
     if let Some(tile_pos) = map_pos.and_then(|cursor_pos| active_map.to_tile_pos(cursor_pos)) {
         if mouse.pressed(MouseButton::Left) && map_interaction.is_allowed() {
             match *selected_building {
-                SelectedTool::Build { building, direction: rotation } => {
+                SelectedTool::Build {
+                    building,
+                    direction: rotation,
+                } => {
                     build_events.send(BuildRequestedEvent {
                         building_type: building,
                         direction: rotation,

@@ -8,6 +8,7 @@ use crate::buildings::Building;
 use crate::camera::Zoom;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum MapDirection {
     Up,
     Down,
@@ -102,6 +103,16 @@ impl BuildingTileType {
             _ => panic!("not a belt"),
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u16)]
+#[allow(dead_code)]
+pub enum IoTileType {
+    OutputUp = 0,
+    OutputDown = 1,
+    OutputLeft = 2,
+    OutputRight = 3,
 }
 
 pub struct ActiveMap {

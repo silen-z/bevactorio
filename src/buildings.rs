@@ -2,26 +2,25 @@ use arrayvec::ArrayVec;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
+use self::templates::BuildingTemplates;
 use crate::input::MapCursorPos;
-use crate::map::{ActiveMap, BuildingTileType, MapLayer, MapDirection};
+use crate::map::{ActiveMap, BuildingTileType, MapDirection, MapLayer};
 use crate::ui::MapInteraction;
 
-use self::templates::BuildingTemplates;
-
-pub mod templates;
-pub mod mine;
 pub mod chest;
+pub mod mine;
+pub mod templates;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum BuildingType {
     Belt,
     Mine,
-    Chest
+    Chest,
 }
 
 #[derive(Component)]
 pub struct Building {
-    pub layout: BuildingLayout
+    pub layout: BuildingLayout,
 }
 
 #[derive(Component)]
@@ -32,7 +31,10 @@ pub struct BuildingTile {
 #[derive(Clone, PartialEq, Eq)]
 pub enum SelectedTool {
     None,
-    Build {building: BuildingType, direction: MapDirection},
+    Build {
+        building: BuildingType,
+        direction: MapDirection,
+    },
     Buldozer,
 }
 
@@ -58,7 +60,7 @@ pub struct BuildingLayout {
 pub struct BuildingBuiltEvent {
     pub building_type: BuildingType,
     pub entity: Entity,
-    pub layout: BuildingLayout
+    pub layout: BuildingLayout,
 }
 
 pub fn build_building(
@@ -66,14 +68,17 @@ pub fn build_building(
     mut map_query: MapQuery,
     mut request_events: EventReader<BuildRequestedEvent>,
     mut building_events: EventWriter<BuildingBuiltEvent>,
-    buildings: Res<BuildingTemplates>,
-    active_map: Res<ActiveMap>
+    templates: Res<BuildingTemplates>,
+    active_map: Res<ActiveMap>,
 ) {
-    for event in request_events.iter()
-    {
-        let template = buildings.templates[&event.building_type].with_origin(event.tile_pos);
+    for event in request_events.iter() {
+        let template = templates
+            .get(event.building_type)
+            .with_origin(event.tile_pos);
 
-        if !is_posible_to_build(&template.instructions, &mut map_query, &active_map) {
+        let instructions = &template.instructions[event.direction];
+
+        if !is_posible_to_build(&instructions, &mut map_query, &active_map) {
             continue;
         }
 
@@ -81,12 +86,12 @@ pub fn build_building(
 
         let mut tiles = ArrayVec::new();
 
-        for (tile_pos, tile_type) in template.instructions {
+        for (tile_pos, tile_type) in instructions {
             if let Ok(mine_tile_entity) = map_query.set_tile(
                 &mut commands,
-                tile_pos,
+                *tile_pos,
                 Tile {
-                    texture_index: tile_type as u16,
+                    texture_index: *tile_type as u16,
                     ..default()
                 },
                 active_map.map_id,
@@ -95,18 +100,20 @@ pub fn build_building(
                 commands.entity(mine_tile_entity).insert(BuildingTile {
                     building: building_entity,
                 });
-                map_query.notify_chunk_for_tile(tile_pos, active_map.map_id, MapLayer::Buildings);
-                tiles.push((mine_tile_entity, tile_pos, tile_type));
+                map_query.notify_chunk_for_tile(*tile_pos, active_map.map_id, MapLayer::Buildings);
+                tiles.push((mine_tile_entity, *tile_pos, *tile_type));
             }
         }
 
         let layout = BuildingLayout { tiles };
 
-        commands.entity(building_entity).insert(Building { layout: layout.clone() });
+        commands.entity(building_entity).insert(Building {
+            layout: layout.clone(),
+        });
         building_events.send(BuildingBuiltEvent {
             building_type: event.building_type,
             entity: building_entity,
-            layout
+            layout,
         });
     }
 }
@@ -177,9 +184,8 @@ pub fn update_build_guide(
     demolish_events: EventReader<DemolishEvent>,
     map_interaction: Res<MapInteraction>,
     active_map: Res<ActiveMap>,
-    buildings: Res<BuildingTemplates>,
+    templates: Res<BuildingTemplates>,
 ) {
-
     if mouse_pos.is_changed()
         || selected_tool.is_changed()
         || !build_events.is_empty()
@@ -199,7 +205,9 @@ pub fn update_build_guide(
             && let Some(tile_pos) = mouse_pos.0 
             && map_interaction.is_allowed()
         {
-            let template = buildings.templates[&building].with_origin(tile_pos);
+            let template = templates.get(building).with_origin(tile_pos);
+
+            let instructions = &template.instructions[direction];
 
             let is_belt_edit = |map_query: &mut MapQuery| building == BuildingType::Belt && map_query
                 .get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings)
@@ -207,28 +215,28 @@ pub fn update_build_guide(
                 .and_then(|te| tiles.get(te).ok())
                 .map_or(false, |tile| BuildingTileType::from(tile.texture_index).is_belt());
 
-            let guide_color = match is_posible_to_build( &template.instructions, &mut map_query, &active_map) {
+            let guide_color = match is_posible_to_build( &instructions, &mut map_query, &active_map) {
                 true => Color::rgba(0., 1., 0., 0.75),
                 false if is_belt_edit(&mut map_query) => Color::rgba(1., 1., 0., 0.75),
                 false => Color::rgba(1., 0., 0., 0.75),
             };
 
-            for (tile_pos, building_type) in template.instructions {
+            for (tile_pos, building_type) in instructions {
                 let tile = Tile {
-                    texture_index: building_type as u16,
+                    texture_index: *building_type as u16,
                     color: guide_color,
                     ..default()
                 };
 
                 if let Ok(entity) = map_query.set_tile(
                     &mut commands,
-                    tile_pos,
+                    *tile_pos,
                     tile,
                     active_map.map_id,
                     MapLayer::BuildGuide,
                 ) {
                     commands.entity(entity).insert(BuildGuide);
-                    map_query.notify_chunk_for_tile(tile_pos, active_map.map_id, MapLayer::BuildGuide);
+                    map_query.notify_chunk_for_tile(*tile_pos, active_map.map_id, MapLayer::BuildGuide);
                 }
             }
         }
@@ -308,10 +316,26 @@ pub fn highlight_demolition(
 fn is_posible_to_build(
     instructions: &[(TilePos, BuildingTileType)],
     map_query: &mut MapQuery,
-    active_map: &ActiveMap
+    active_map: &ActiveMap,
 ) -> bool {
-    instructions.iter().all(|(tile_pos, _ )| {
+    instructions.iter().all(|(tile_pos, _)| {
         let res = map_query.get_tile_entity(*tile_pos, active_map.map_id, MapLayer::Buildings);
         matches!(res, Err(MapTileError::NonExistent(_)))
     })
+}
+
+pub struct UnknownBuildingType;
+
+impl std::str::FromStr for BuildingType {
+    type Err = UnknownBuildingType;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use BuildingType::*;
+        let building_type = match s {
+            "mine" => Mine,
+            _ => return Err(UnknownBuildingType),
+        };
+
+        Ok(building_type)
+    }
 }

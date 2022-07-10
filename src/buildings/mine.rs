@@ -13,11 +13,6 @@ pub struct Mine {
     output: TilePos,
 }
 
-pub const MINE_TEMPLATE: &str = r#"
-4 5
-6 7
-"#;
-
 pub fn build_mine(mut commands: Commands, mut new_buildings: EventReader<BuildingBuiltEvent>) {
     for event in new_buildings.iter() {
         if let BuildingType::Mine = event.building_type {
@@ -26,7 +21,7 @@ pub fn build_mine(mut commands: Commands, mut new_buildings: EventReader<Buildin
                 .tiles
                 .iter()
                 .find(|(_, _, tile_type)| matches!(tile_type, BuildingTileType::MineBottomLeft))
-                .unwrap();
+                .expect("mine template doesn't have output specified");
 
             commands.entity(event.entity).insert(Mine {
                 timer: Timer::new(Duration::from_secs(1), true),
