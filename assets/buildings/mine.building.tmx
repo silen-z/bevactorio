@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.9" tiledversion="1.9.0" orientation="orthogonal" renderorder="right-up" compressionlevel="0" width="2" height="2" tilewidth="16" tileheight="16" infinite="0" nextlayerid="9" nextobjectid="1">
+ <tileset firstgid="1" name="buildings" tilewidth="16" tileheight="16" tilecount="10" columns="10">
+  <image source="../tilesets/buildings.png" width="160" height="16"/>
+ </tileset>
+ <tileset firstgid="11" name="io" tilewidth="16" tileheight="16" tilecount="4" columns="4">
+  <image source="../tilesets/io.png" width="64" height="16"/>
+ </tileset>
+ <layer id="1" name="base" width="2" height="2">
+  <data encoding="base64" compression="gzip">
+   H4sIAAAAAAAECmNlYGBgA2J2IOYAYgBVEq62EAAAAA==
+  </data>
+ </layer>
+ <layer id="4" name="io_up" width="2" height="2">
+  <data encoding="base64" compression="gzip">
+   H4sIAAAAAAAECmNgYGDgBmIYAABb7ymdEAAAAA==
+  </data>
+ </layer>
+ <layer id="5" name="io_left" width="2" height="2">
+  <data encoding="base64" compression="gzip">
+   H4sIAAAAAAAECuNlQAUADAnx5RAAAAA=
+  </data>
+ </layer>
+ <layer id="6" name="io_down" width="2" height="2">
+  <data encoding="base64" compression="gzip">
+   H4sIAAAAAAAECmNggAAeKA0AGl4UuxAAAAA=
+  </data>
+ </layer>
+ <layer id="7" name="io_right" width="2" height="2">
+  <data encoding="base64" compression="gzip">
+   H4sIAAAAAAAECmNgQAA+IBMAZjxkDBAAAAA=
+  </data>
+ </layer>
+</map>

@@ -8,7 +8,10 @@ use bevy_ecs_tilemap::prelude::*;
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
 use crate::buildings::mine::{build_mine, mine_produce};
-use crate::buildings::templates::BuildingTemplates;
+use crate::buildings::templates::{
+    load_building_templates, register_building_templates, BuildingTemplates, BuildingTilemap,
+    BuildingTilemapLoader,
+};
 use crate::buildings::{
     build_building, demolish_building, highlight_demolition, update_build_guide,
     BuildRequestedEvent, BuildingBuiltEvent, DemolishEvent, SelectedTool,
@@ -26,6 +29,7 @@ use crate::ui::{
 mod belts;
 mod buildings;
 mod camera;
+mod direction;
 mod input;
 mod map;
 mod ui;
@@ -83,6 +87,8 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(TilemapPlugin)
         .add_state(AppState::InGame)
+        .add_asset::<BuildingTilemap>()
+        .add_asset_loader(BuildingTilemapLoader)
         .init_resource::<ActiveMap>()
         .init_resource::<SelectedTool>()
         .init_resource::<BuildingTemplates>()
@@ -98,6 +104,8 @@ fn main() {
         .add_event::<MapEvent>()
         .add_startup_system(startup)
         .add_startup_system(init_ui)
+        .add_startup_system(load_building_templates)
+        .add_system(register_building_templates)
         .add_system_set(in_game_systems)
         .add_system_set(build_mode)
         .run();

@@ -1,0 +1,75 @@
+{
+    "activeFile": "buildings/mine.building.tmx",
+    "expandedProjectPaths": [
+        "buildings",
+        "."
+    ],
+    "fileStates": {
+        "buildings/mine.building.tmx": {
+            "scale": 8,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 10.125,
+                "y": 26.375
+            }
+        },
+        "buildings/mine.building.tmx#buildings": {
+            "scaleInDock": 1
+        },
+        "buildings/mine.building.tmx#io": {
+            "scaleInDock": 1
+        },
+        "buildings/mine.tmx": {
+            "scale": 2.078125,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 73.62406015037593,
+                "y": 10.586466165413526
+            }
+        },
+        "buildings/mine.tmx#buildings": {
+            "scaleInDock": 1
+        },
+        "buildings/mine.tmx#io": {
+            "scaleInDock": 1
+        },
+        "mine.building.tmx": {
+            "scale": 22.028125,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 16.024968080578805,
+                "y": 16.0249680805788
+            }
+        },
+        "mine.building.tmx#buildings": {
+            "scaleInDock": 1
+        },
+        "mine.building.tmx#io": {
+            "scaleInDock": 1
+        },
+        "mine.tmx": {
+            "scale": 11,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 6,
+                "y": 9.181818181818183
+            }
+        },
+        "mine.tmx#buildings": {
+            "scaleInDock": 1
+        },
+        "mine.tmx#io": {
+            "scaleInDock": 1
+        }
+    },
+    "openFiles": [
+        "buildings/mine.building.tmx"
+    ],
+    "project": "tilemaps.tiled-project",
+    "recentFiles": [
+        "buildings/mine.building.tmx",
+        "mine.building.tmx",
+        "mine.tmx",
+        "buildings/mine.tmx"
+    ]
+}
