@@ -9,8 +9,8 @@ use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
 use crate::buildings::mine::{build_mine, mine_produce};
 use crate::buildings::templates::{
-    load_building_templates, register_building_templates, BuildingTemplates, BuildingTilemap,
-    BuildingTilemapLoader,
+    load_building_templates, register_building_templates, BuildingTemplate, BuildingTemplateLoader,
+    BuildingTemplates,
 };
 use crate::buildings::{
     build_building, demolish_building, highlight_demolition, update_build_guide,
@@ -34,11 +34,16 @@ mod input;
 mod map;
 mod ui;
 
-fn startup(mut commands: Commands, mut app_state: ResMut<State<AppState>>) {
+fn startup(
+    mut commands: Commands,
+    mut app_state: ResMut<State<AppState>>,
+    asset_server: Res<AssetServer>,
+) {
     commands
         .spawn_bundle(OrthographicCameraBundle::new_2d())
         .insert(MainCamera);
 
+    asset_server.watch_for_changes().unwrap();
     let _ = app_state.push(AppState::BuildMode);
 }
 
@@ -87,8 +92,8 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(TilemapPlugin)
         .add_state(AppState::InGame)
-        .add_asset::<BuildingTilemap>()
-        .add_asset_loader(BuildingTilemapLoader)
+        .add_asset::<BuildingTemplate>()
+        .add_asset_loader(BuildingTemplateLoader)
         .init_resource::<ActiveMap>()
         .init_resource::<SelectedTool>()
         .init_resource::<BuildingTemplates>()

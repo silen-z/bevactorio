@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy::reflect::TypeUuid;
 use bevy::utils::{Hashed, PreHashMap};
 use bevy_ecs_tilemap::prelude::*;
+use tiled::LayerType;
 
 use super::{BuildingType, MAX_BUILDING_SIZE};
 use crate::direction::{Directional, MapDirection};
@@ -11,7 +12,10 @@ use crate::map::{BuildingTileType, IoTileType};
 
 type Instructions<T> = ArrayVec<(TilePos, T), MAX_BUILDING_SIZE>;
 
+#[derive(TypeUuid)]
+#[uuid = "a5bf35d0-f823-4a41-8e54-dd1bd4ed0acd"]
 pub struct BuildingTemplate {
+    pub building_type: BuildingType,
     pub instructions: Directional<Instructions<BuildingTileType>>,
     pub io: Directional<Instructions<IoTileType>>,
 }
@@ -25,23 +29,47 @@ impl BuildingTemplate {
         }
     }
 
-    fn from_tilemap(map: tiled::Map) -> Result<BuildingTemplate, String> {
-        let mut base_layer = None;
-
-        for layer in map.layers() {
-            match layer.layer_type() {
-                tiled::LayerType::TileLayer(l) if layer.name == "base" => {
-                    base_layer = instructions_from_layer(l)
-                }
-
-                _ => continue,
-            }
-        }
-
+    fn from_tilemap(
+        building_type: BuildingType,
+        map: tiled::Map,
+    ) -> anyhow::Result<BuildingTemplate> {
         Ok(BuildingTemplate {
-            instructions: Directional::all(base_layer.unwrap()),
-            io: Directional::all(ArrayVec::new()),
+            building_type,
+            instructions: Directional {
+                up: get_layer(&map, "base", MapDirection::Up).unwrap(),
+                down: get_layer(&map, "base", MapDirection::Down).unwrap(),
+                left: get_layer(&map, "base", MapDirection::Left).unwrap(),
+                right: get_layer(&map, "base", MapDirection::Right).unwrap(),
+            },
+            io: Directional {
+                up: get_layer(&map, "io", MapDirection::Up).unwrap_or_default(),
+                down: get_layer(&map, "io", MapDirection::Down).unwrap_or_default(),
+                left: get_layer(&map, "io", MapDirection::Left).unwrap_or_default(),
+                right: get_layer(&map, "io", MapDirection::Right).unwrap_or_default(),
+            },
         })
+    }
+}
+
+fn get_layer<T: From<u16>>(
+    map: &tiled::Map,
+    layer_name: &str,
+    direction: MapDirection,
+) -> Option<Instructions<T>> {
+    let direction_group = map.layers().find_map(|layer| match layer.layer_type() {
+        LayerType::GroupLayer(l) if direction == layer.name => Some(l),
+        _ => None,
+    });
+
+    let by_name = |l: &tiled::Layer| l.name == layer_name;
+
+    let layer = direction_group
+        .and_then(|g| g.layers().find(by_name))
+        .or(map.layers().find(by_name))?;
+
+    match layer.layer_type() {
+        tiled::LayerType::TileLayer(l) => instructions_from_layer(l),
+        _ => None,
     }
 }
 
@@ -83,29 +111,23 @@ impl PlacedBuildingTemplate<'_> {
 
 #[derive(Default)]
 pub struct BuildingTemplates {
-    pub templates: PreHashMap<BuildingType, BuildingTemplate>,
+    templates: PreHashMap<BuildingType, Handle<BuildingTemplate>>,
+    loading_handles: Vec<HandleUntyped>,
 }
 
 impl BuildingTemplates {
-    fn register(&mut self, building_type: BuildingType, template: BuildingTemplate) {
+    fn register(&mut self, building_type: BuildingType, template: Handle<BuildingTemplate>) {
         self.templates.insert(Hashed::new(building_type), template);
     }
 
-    pub fn get(&self, building: BuildingType) -> &BuildingTemplate {
-        &self.templates[&Hashed::new(building)]
+    pub fn get(&self, building: BuildingType) -> Handle<BuildingTemplate> {
+        self.templates[&Hashed::new(building)].clone()
     }
 }
 
-#[derive(TypeUuid)]
-#[uuid = "a5bf35d0-f823-4a41-8e54-dd1bd4ed0acd"]
-pub struct BuildingTilemap {
-    building_type: BuildingType,
-    tilemap: tiled::Map,
-}
+pub struct BuildingTemplateLoader;
 
-pub struct BuildingTilemapLoader;
-
-impl bevy::asset::AssetLoader for BuildingTilemapLoader {
+impl bevy::asset::AssetLoader for BuildingTemplateLoader {
     fn load<'a>(
         &'a self,
         bytes: &'a [u8],
@@ -115,20 +137,18 @@ impl bevy::asset::AssetLoader for BuildingTilemapLoader {
             let mut loader = tiled::Loader::new();
 
             let path = load_context.path();
+            let tilemap = loader.load_tmx_map_from(std::io::BufReader::new(bytes), path)?;
 
-            let building_type: BuildingType = path
+            let building_type = path
                 .file_name()
                 .and_then(|s| s.to_str())
                 .and_then(|s| s.strip_suffix(".building.tmx"))
                 .and_then(|s| s.parse().ok())
-                .ok_or_else(|| anyhow::anyhow!("invalid building"))?;
+                .ok_or_else(|| anyhow::anyhow!("unknown building {}", path.display()))?;
 
-            let tilemap = loader.load_tmx_map_from(std::io::BufReader::new(bytes), path)?;
+            let template = BuildingTemplate::from_tilemap(building_type, tilemap)?;
 
-            load_context.set_default_asset(LoadedAsset::new(BuildingTilemap {
-                building_type,
-                tilemap,
-            }));
+            load_context.set_default_asset(LoadedAsset::new(template));
             Ok(())
         })
     }
@@ -139,32 +159,37 @@ impl bevy::asset::AssetLoader for BuildingTilemapLoader {
     }
 }
 
-pub struct BuildingTilemapAssets(Vec<HandleUntyped>);
-
-pub fn load_building_templates(mut commands: Commands, assets: Res<AssetServer>) {
-    if let Ok(handles) = assets.load_folder("buildings") {
-        commands.insert_resource(BuildingTilemapAssets(handles));
+pub fn load_building_templates(assets: Res<AssetServer>, mut templates: ResMut<BuildingTemplates>) {
+    match assets.load_folder("buildings") {
+        Ok(handles) => {
+            templates.loading_handles.extend(handles);
+        }
+        Err(e) => warn!("couldn't load building templates: {}", e),
     }
 }
 
 pub fn register_building_templates(
-    mut assets: ResMut<Assets<BuildingTilemap>>,
-    mut asset_events: EventReader<AssetEvent<BuildingTilemap>>,
+    templates: Res<Assets<BuildingTemplate>>,
+    mut asset_events: EventReader<AssetEvent<BuildingTemplate>>,
     mut building_templates: ResMut<BuildingTemplates>,
 ) {
     for event in asset_events.iter() {
-        if let AssetEvent::Created { handle } = event {
-            let BuildingTilemap {
-                building_type,
-                tilemap,
-            } = assets.remove(handle).unwrap();
-
-            let Ok(template) = BuildingTemplate::from_tilemap(tilemap) else {
-                warn!("unable to load building");
-                continue;
-            };
-
-            building_templates.register(building_type, template);
+        match event {
+            AssetEvent::Created { handle } => {
+                if let Some(index) = building_templates
+                    .loading_handles
+                    .iter()
+                    .position(|h| h.id == handle.id)
+                {
+                    let template = templates.get(handle).unwrap();
+                    let handle = building_templates.loading_handles.swap_remove(index);
+                    building_templates.register(template.building_type, handle.typed());
+                }
+            }
+            AssetEvent::Modified { .. } => {
+                info!("reloaded building");
+            }
+            _ => {}
         }
     }
 }

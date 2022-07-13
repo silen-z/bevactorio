@@ -4,16 +4,18 @@
         "buildings",
         "."
     ],
+    "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
         "buildings/mine.building.tmx": {
-            "scale": 8,
+            "scale": 5.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 10.125,
-                "y": 26.375
+                "x": 17.363636363636363,
+                "y": -3.7272727272727337
             }
         },
         "buildings/mine.building.tmx#buildings": {
+            "dynamicWrapping": false,
             "scaleInDock": 1
         },
         "buildings/mine.building.tmx#io": {
@@ -62,14 +64,34 @@
             "scaleInDock": 1
         }
     },
+    "map.fixedSize": false,
+    "map.height": 100,
+    "map.lastUsedExportFilter": "Tiled map files (*.tmx *.xml)",
+    "map.orientation": 1,
+    "map.renderOrder": 1,
+    "map.tileHeight": 16,
+    "map.tileWidth": 16,
+    "map.width": 100,
     "openFiles": [
         "buildings/mine.building.tmx"
     ],
     "project": "tilemaps.tiled-project",
+    "property.type": "string",
     "recentFiles": [
         "buildings/mine.building.tmx",
         "mine.building.tmx",
         "mine.tmx",
         "buildings/mine.tmx"
-    ]
+    ],
+    "resizeMap.removeObjects": true,
+    "tileset.embedInMap": true,
+    "tileset.margin": 0,
+    "tileset.spacing": 0,
+    "tileset.tileSize": {
+        "height": 16,
+        "width": 16
+    },
+    "tileset.transparentColor": "#ff00ff",
+    "tileset.type": 0,
+    "tileset.useTransparentColor": false
 }

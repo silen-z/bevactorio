@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.9" tiledversion="1.9.0" orientation="orthogonal" renderorder="right-up" compressionlevel="0" width="2" height="2" tilewidth="16" tileheight="16" infinite="0" nextlayerid="9" nextobjectid="1">
+<map version="1.9" tiledversion="1.9.0" orientation="orthogonal" renderorder="right-up" compressionlevel="0" width="2" height="2" tilewidth="16" tileheight="16" infinite="0" nextlayerid="13" nextobjectid="1">
  <tileset firstgid="1" name="buildings" tilewidth="16" tileheight="16" tilecount="10" columns="10">
   <image source="../tilesets/buildings.png" width="160" height="16"/>
  </tileset>
@@ -11,24 +11,32 @@
    H4sIAAAAAAAECmNlYGBgA2J2IOYAYgBVEq62EAAAAA==
   </data>
  </layer>
- <layer id="4" name="io_up" width="2" height="2">
-  <data encoding="base64" compression="gzip">
-   H4sIAAAAAAAECmNgYGDgBmIYAABb7ymdEAAAAA==
-  </data>
- </layer>
- <layer id="5" name="io_left" width="2" height="2">
-  <data encoding="base64" compression="gzip">
+ <group id="11" name="left">
+  <layer id="5" name="io" width="2" height="2">
+   <data encoding="base64" compression="gzip">
    H4sIAAAAAAAECuNlQAUADAnx5RAAAAA=
   </data>
- </layer>
- <layer id="6" name="io_down" width="2" height="2">
-  <data encoding="base64" compression="gzip">
-   H4sIAAAAAAAECmNggAAeKA0AGl4UuxAAAAA=
-  </data>
- </layer>
- <layer id="7" name="io_right" width="2" height="2">
-  <data encoding="base64" compression="gzip">
+  </layer>
+ </group>
+ <group id="12" name="right">
+  <layer id="7" name="io" width="2" height="2">
+   <data encoding="base64" compression="gzip">
    H4sIAAAAAAAECmNgQAA+IBMAZjxkDBAAAAA=
   </data>
- </layer>
+  </layer>
+ </group>
+ <group id="9" name="up">
+  <layer id="4" name="io" width="2" height="2">
+   <data encoding="base64" compression="gzip">
+   H4sIAAAAAAAECmNgYGDgBmIYAABb7ymdEAAAAA==
+  </data>
+  </layer>
+ </group>
+ <group id="10" name="down">
+  <layer id="6" name="io" width="2" height="2">
+   <data encoding="base64" compression="gzip">
+   H4sIAAAAAAAECmNggAAeKA0AGl4UuxAAAAA=
+  </data>
+  </layer>
+ </group>
 </map>
