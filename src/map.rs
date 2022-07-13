@@ -98,6 +98,7 @@ pub enum IoTileType {
     OutputDown = 1,
     OutputLeft = 2,
     OutputRight = 3,
+    Unknown = u16::MAX,
 }
 
 pub struct ActiveMap {
@@ -372,6 +373,17 @@ impl TryFrom<Tile> for TerrainType {
                 Ok(unsafe { std::mem::transmute(x) })
             }
             _ => Err(()),
+        }
+    }
+}
+
+impl From<u16> for IoTileType {
+    fn from(texture_index: u16) -> Self {
+        match texture_index {
+            x if x >= IoTileType::OutputUp as u16 && x <= IoTileType::OutputRight as u16 => unsafe {
+                std::mem::transmute(x)
+            },
+            _ => Self::Unknown,
         }
     }
 }

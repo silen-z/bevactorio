@@ -2,48 +2,29 @@
 #[allow(dead_code)]
 pub enum MapDirection {
     #[default]
-    Down,
     Up,
+    Down,
     Left,
     Right,
 }
 
 pub struct Directional<T> {
-    up: T,
-    down: T,
-    left: T,
-    right: T,
+    pub up: T,
+    pub down: T,
+    pub left: T,
+    pub right: T,
 }
 
-impl<T> Directional<T> {
-    pub fn map<U>(self, f: impl Fn(T) -> U) -> Directional<U> {
-        Directional {
-            up: f(self.up),
-            down: f(self.down),
-            left: f(self.left),
-            right: f(self.right),
-        }
-    }
-}
-
-impl<T: Clone> Directional<T> {
-    pub fn all(value: T) -> Self {
-        Self {
-            up: value.clone(),
-            down: value.clone(),
-            left: value.clone(),
-            right: value.clone(),
-        }
-    }
-}
-
-impl<T: Clone> Clone for Directional<T> {
-    fn clone(&self) -> Self {
-        Self {
-            up: self.up.clone(),
-            down: self.down.clone(),
-            left: self.left.clone(),
-            right: self.right.clone(),
+impl<S> PartialEq<S> for MapDirection
+where
+    S: AsRef<str>,
+{
+    fn eq(&self, other: &S) -> bool {
+        match self {
+            Self::Up => other.as_ref() == "up",
+            Self::Down => other.as_ref() == "down",
+            Self::Left => other.as_ref() == "left",
+            Self::Right => other.as_ref() == "right",
         }
     }
 }

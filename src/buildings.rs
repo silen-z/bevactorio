@@ -2,7 +2,7 @@ use arrayvec::ArrayVec;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use self::templates::{BuildingTemplates, PlacedBuildingTemplate};
+use self::templates::{BuildingTemplate, BuildingTemplates, PlacedBuildingTemplate};
 use crate::direction::MapDirection;
 use crate::input::MapCursorPos;
 use crate::map::{ActiveMap, BuildingTileType, MapLayer};
@@ -69,12 +69,17 @@ pub fn build_building(
     mut map_query: MapQuery,
     mut request_events: EventReader<BuildRequestedEvent>,
     mut building_events: EventWriter<BuildingBuiltEvent>,
-    templates: Res<BuildingTemplates>,
+    template_handles: Res<BuildingTemplates>,
+    templates: Res<Assets<BuildingTemplate>>,
     active_map: Res<ActiveMap>,
 ) {
     for event in request_events.iter() {
+        let template = template_handles.get(event.building_type);
+        // .place(event.tile_pos, event.direction);
+
         let template = templates
-            .get(event.building_type)
+            .get(template)
+            .unwrap()
             .place(event.tile_pos, event.direction);
 
         if !is_posible_to_build(&template, &mut map_query, &active_map) {
@@ -183,7 +188,8 @@ pub fn update_build_guide(
     demolish_events: EventReader<DemolishEvent>,
     map_interaction: Res<MapInteraction>,
     active_map: Res<ActiveMap>,
-    templates: Res<BuildingTemplates>,
+    template_handles: Res<BuildingTemplates>,
+    templates: Res<Assets<BuildingTemplate>>,
 ) {
     if mouse_pos.is_changed()
         || selected_tool.is_changed()
@@ -204,8 +210,11 @@ pub fn update_build_guide(
             && let Some(tile_pos) = mouse_pos.0 
             && map_interaction.is_allowed()
         {
-            let template = templates.get(building).place(tile_pos, direction);
 
+            let template = template_handles
+            .get(building);
+
+        let template = templates.get(template).unwrap().place(tile_pos, direction);
 
             let is_belt_edit = |map_query: &mut MapQuery| building == BuildingType::Belt && map_query
                 .get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings)
