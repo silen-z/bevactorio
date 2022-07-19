@@ -1,5 +1,4 @@
 #![feature(let_else)]
-#![feature(let_chains)]
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -7,14 +6,15 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
+use crate::buildings::guide::{show_demo_tool, show_build_tool};
 use crate::buildings::mine::{build_mine, mine_produce};
 use crate::buildings::templates::{
     load_building_templates, register_building_templates, BuildingTemplate, BuildingTemplateLoader,
     BuildingTemplates,
 };
 use crate::buildings::{
-    build_building, demolish_building, highlight_demolition, update_build_guide,
-    BuildRequestedEvent, BuildingBuiltEvent, DemolishEvent, SelectedTool,
+    build_building, construct_building, demolish_building, BuildRequestedEvent, DemolishEvent,
+    SelectedTool,
 };
 use crate::camera::{camera_movement, MainCamera, Zoom};
 use crate::input::{
@@ -77,14 +77,15 @@ fn main() {
         .with_system(input_from_belts.after(move_items_on_belts));
 
     let build_mode = SystemSet::on_update(AppState::BuildMode)
-        .with_system(update_build_guide)
+        .with_system(show_build_tool)
         .with_system(handle_select_tool)
         .with_system(clear_buildings)
         .with_system(highlight_selected_tool)
-        .with_system(highlight_demolition.after(update_build_guide))
+        .with_system(show_demo_tool.after(show_build_tool))
         .with_system(build_building)
-        .with_system(build_mine.after(build_building))
-        .with_system(build_chest);
+        .with_system(construct_building.after(build_building))
+        .with_system(build_mine.after(construct_building))
+        .with_system(build_chest.after(construct_building));
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -104,7 +105,6 @@ fn main() {
         .init_resource::<Zoom>()
         .insert_resource(window_settings)
         .add_event::<BuildRequestedEvent>()
-        .add_event::<BuildingBuiltEvent>()
         .add_event::<DemolishEvent>()
         .add_event::<MapEvent>()
         .add_startup_system(startup)

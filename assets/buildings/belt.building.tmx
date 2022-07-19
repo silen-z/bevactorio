@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.9" tiledversion="1.9.0" orientation="orthogonal" renderorder="right-up" width="1" height="1" tilewidth="16" tileheight="16" infinite="0" nextlayerid="11" nextobjectid="1">
+ <tileset firstgid="1" name="buildings" tilewidth="16" tileheight="16" tilecount="10" columns="10">
+  <image source="../tilesets/buildings.png" width="160" height="16"/>
+ </tileset>
+ <group id="2" name="up" visible="0">
+  <layer id="6" name="base" width="1" height="1">
+   <data encoding="base64" compression="zlib">
+   eJxjZGBgAAAACAAC
+  </data>
+  </layer>
+ </group>
+ <group id="3" name="down" visible="0">
+  <layer id="1" name="base" width="1" height="1">
+   <data encoding="base64" compression="zlib">
+   eJxjYmBgAAAADAAD
+  </data>
+  </layer>
+ </group>
+ <group id="4" name="left" visible="0">
+  <layer id="7" name="base" width="1" height="1">
+   <data encoding="base64" compression="zlib">
+   eJxjZmBgAAAAEAAE
+  </data>
+  </layer>
+ </group>
+ <group id="5" name="right" visible="0">
+  <layer id="10" name="base" width="1" height="1">
+   <data encoding="base64" compression="zlib">
+   eJxjYWBgAAAAFAAF
+  </data>
+  </layer>
+ </group>
+</map>

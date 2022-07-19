@@ -1,4 +1,6 @@
-#[derive(Clone, Copy, PartialEq, Default, Eq)]
+use bevy::ecs::component::Component;
+
+#[derive(Component, Clone, Copy, PartialEq, Default, Eq)]
 #[allow(dead_code)]
 pub enum MapDirection {
     #[default]
@@ -8,11 +10,15 @@ pub enum MapDirection {
     Right,
 }
 
-pub struct Directional<T> {
-    pub up: T,
-    pub down: T,
-    pub left: T,
-    pub right: T,
+impl MapDirection {
+    pub fn turn_left(&mut self) {
+        *self = match self {
+            MapDirection::Up => MapDirection::Left,
+            MapDirection::Down => MapDirection::Right,
+            MapDirection::Left => MapDirection::Down,
+            MapDirection::Right => MapDirection::Up,
+        }
+    }
 }
 
 impl<S> PartialEq<S> for MapDirection
@@ -27,6 +33,13 @@ where
             Self::Right => other.as_ref() == "right",
         }
     }
+}
+
+pub struct Directional<T> {
+    pub up: T,
+    pub down: T,
+    pub left: T,
+    pub right: T,
 }
 
 impl<T> std::ops::Index<MapDirection> for Directional<T> {

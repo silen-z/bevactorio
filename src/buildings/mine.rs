@@ -3,9 +3,11 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use super::{BuildingBuiltEvent, BuildingType};
 use crate::belts::{Belt, Item, ItemType};
-use crate::map::{ActiveMap, BuildingTileType, MapLayer};
+use crate::buildings::BuildingType;
+use crate::map::{ActiveMap, MapLayer};
+
+use super::Building;
 
 #[derive(Component)]
 pub struct Mine {
@@ -13,19 +15,16 @@ pub struct Mine {
     output: TilePos,
 }
 
-pub fn build_mine(mut commands: Commands, mut new_buildings: EventReader<BuildingBuiltEvent>) {
-    for event in new_buildings.iter() {
-        if let BuildingType::Mine = event.building_type {
-            let (_, output, _) = event
-                .layout
-                .tiles
-                .iter()
-                .find(|(_, _, tile_type)| matches!(tile_type, BuildingTileType::MineBottomLeft))
-                .expect("mine template doesn't have output specified");
-
-            commands.entity(event.entity).insert(Mine {
+pub fn build_mine(
+    mut commands: Commands,
+    new_buildings: Query<(Entity, &BuildingType, &TilePos), Added<Building>>,
+) {
+    for (entity, building_type, tile_pos) in new_buildings.iter() {
+        if let BuildingType::Mine = building_type {
+            info!("built mine");
+            commands.entity(entity).insert(Mine {
                 timer: Timer::new(Duration::from_secs(1), true),
-                output: *output,
+                output: *tile_pos,
             });
         }
     }
