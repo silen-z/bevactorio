@@ -19,7 +19,7 @@ pub fn handle_mouse_input(
     active_map: Res<ActiveMap>,
 ) {
     if let Some(tile_pos) = map_pos.and_then(|cursor_pos| active_map.to_tile_pos(cursor_pos)) {
-        if mouse.pressed(MouseButton::Left) && map_interaction.is_allowed() {
+        if mouse.just_pressed(MouseButton::Left) && map_interaction.is_allowed() {
             match *selected_building {
                 SelectedTool::Build {
                     building,
@@ -88,6 +88,12 @@ pub fn handle_keyboard_input(
                 key_code: Some(KeyCode::D),
                 ..
             } => *selected_tool = SelectedTool::Buldozer,
+
+            KeyboardInput {
+                state: ElementState::Pressed,
+                key_code: Some(KeyCode::R),
+                ..
+            } => selected_tool.rotate(),
 
             _ => {}
         }

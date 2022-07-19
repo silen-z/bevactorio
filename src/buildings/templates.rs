@@ -106,6 +106,15 @@ impl PlacedBuildingTemplate<'_> {
                 let pos = TilePos(self.origin.0 + tile_pos.0, self.origin.1 + tile_pos.1);
                 (pos, *tile_type)
             })
+    }   
+    
+    pub fn io(&self) -> impl Iterator<Item = (TilePos, IoTileType)> + '_ {
+        self.template.io[self.direction]
+            .iter()
+            .map(|(tile_pos, tile_type)| {
+                let pos = TilePos(self.origin.0 + tile_pos.0, self.origin.1 + tile_pos.1);
+                (pos, *tile_type)
+            })
     }
 }
 
@@ -172,6 +181,7 @@ pub fn register_building_templates(
     templates: Res<Assets<BuildingTemplate>>,
     mut asset_events: EventReader<AssetEvent<BuildingTemplate>>,
     mut building_templates: ResMut<BuildingTemplates>,
+    mut buildings: Query<&mut Handle<BuildingTemplate>>,
 ) {
     for event in asset_events.iter() {
         match event {
@@ -186,8 +196,12 @@ pub fn register_building_templates(
                     building_templates.register(template.building_type, handle.typed());
                 }
             }
-            AssetEvent::Modified { .. } => {
-                info!("reloaded building");
+            AssetEvent::Modified { handle } => {
+                for building_handle in buildings.iter_mut() {
+                    if &*building_handle == handle {
+                        building_handle.into_inner();
+                    }
+                }
             }
             _ => {}
         }

@@ -14,6 +14,7 @@ pub enum MapLayer {
     Grid = 1,
     Buildings = 2,
     BuildGuide = 3,
+    IoGuide = 4,
 }
 
 impl LayerId for MapLayer {}
@@ -144,6 +145,9 @@ impl FromWorld for ActiveMap {
         let grid_texture = asset_server.load("tilesets/grid.png");
         let grid_texture_size = TextureSize(16.0, 16.0);
 
+        let io_texture = asset_server.load("tilesets/io.png");
+        let io_texture_size = TextureSize(16.0 * 4., 16.0);
+
         let mut dependencies: SystemState<(Commands, MapQuery)> = SystemState::new(world);
         let (mut commands, mut map_query) = dependencies.get_mut(world);
 
@@ -228,6 +232,23 @@ impl FromWorld for ActiveMap {
             map_query.build_layer(&mut commands, layer_builder, buildings_texture);
 
             map.add_layer(&mut commands, MapLayer::BuildGuide, layer_entity);
+        }
+
+        // Build io guide layer
+        {
+            let layer_settings =
+                LayerSettings::new(map_size, chunk_size, tile_size, io_texture_size);
+
+            let (layer_builder, layer_entity) = LayerBuilder::<TileBundle>::new(
+                &mut commands,
+                layer_settings,
+                map_id,
+                MapLayer::IoGuide,
+            );
+
+            map_query.build_layer(&mut commands, layer_builder, io_texture);
+
+            map.add_layer(&mut commands, MapLayer::IoGuide, layer_entity);
         }
 
         dependencies.apply(world);
