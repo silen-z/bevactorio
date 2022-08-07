@@ -6,5 +6,5 @@ edition = "2021"
 
 [dependencies]
 arrayvec = { version = "0.7.2" }
-bevy = { version = "0.7.0", features = ["dynamic"] }
-bevy_ecs_tilemap = { version = "0.6.0" }
+bevy = { version = "0.8.0", features = ["dynamic"] }
+bevy_ecs_tilemap = { version = "0.7.0" }

@@ -2,7 +2,6 @@ use arrayvec::ArrayVec;
 use bevy::utils::HashMap;
 use bevy_ecs_tilemap::prelude::*;
 
-use super::mine::MINE_TEMPLATE;
 use super::BuildingTileType::*;
 use super::{BuildingTileType, BuildingType, MAX_BUILDING_SIZE};
 
@@ -16,7 +15,7 @@ impl Default for BuildingTemplates {
 
         templates.insert(BuildingType::Belt, BuildingTemplate::from_single(BeltUp));
         templates.insert(BuildingType::Chest, BuildingTemplate::from_single(Chest));
-        templates.insert(BuildingType::Mine, MINE_TEMPLATE.parse().unwrap());
+        // templates.insert(BuildingType::Mine, MINE_TEMPLATE.parse().unwrap());
 
         Self { templates }
     }
@@ -29,7 +28,7 @@ pub struct BuildingTemplate {
 impl BuildingTemplate {
     pub fn from_single(building_type: BuildingTileType) -> Self {
         let mut instructions = ArrayVec::new();
-        instructions.push((TilePos(0, 0), building_type));
+        instructions.push((TilePos::new(0, 0), building_type));
 
         Self { instructions }
     }
@@ -39,7 +38,7 @@ impl BuildingTemplate {
             .instructions
             .iter()
             .map(|(tile_pos, tile_type)| {
-                let pos = TilePos(tile_pos.0 + origin.0, tile_pos.1 + origin.1);
+                let pos = TilePos::new(tile_pos.x + origin.x, tile_pos.y + origin.y);
                 (pos, *tile_type)
             })
             .collect();
@@ -48,32 +47,32 @@ impl BuildingTemplate {
     }
 }
 
-impl std::str::FromStr for BuildingTemplate {
-    type Err = &'static str;
+// impl std::str::FromStr for BuildingTemplate {
+//     type Err = &'static str;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let lines: Vec<&str> = s.lines().filter(|l| !l.is_empty()).collect();
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         let lines: Vec<&str> = s.lines().filter(|l| !l.is_empty()).collect();
 
-        let rows = lines.len() - 1;
+//         let rows = lines.len() - 1;
 
-        let width = lines
-            .iter()
-            .map(|l| l.split(' ').count())
-            .max()
-            .ok_or_else(|| "no lines")?;
+//         let width = lines
+//             .iter()
+//             .map(|l| l.split(' ').count())
+//             .max()
+//             .ok_or_else(|| "no lines")?;
 
-        let mut instructions = ArrayVec::new();
+//         let mut instructions = ArrayVec::new();
 
-        for (row, line) in lines.into_iter().enumerate() {
-            for (col, tile) in (0..width).zip(line.split(' ').chain(std::iter::once("_"))) {
-                if tile != "_" {
-                    let tile = tile.parse().unwrap();
+//         for (row, line) in lines.into_iter().enumerate() {
+//             for (col, tile) in (0..width).zip(line.split(' ').chain(std::iter::once("_"))) {
+//                 if tile != "_" {
+//                     let tile = tile.parse().unwrap();
 
-                    instructions.push((TilePos(col as u32, (rows - row) as u32), tile));
-                }
-            }
-        }
+//                     instructions.push((TilePos::new(col as u32, (rows - row) as u32), tile));
+//                 }
+//             }
+//         }
 
-        Ok(Self { instructions })
-    }
-}
+//         Ok(Self { instructions })
+//     }
+// }
