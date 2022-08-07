@@ -1,12 +1,11 @@
-#![feature(let_else)]
-
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use map::init_map;
 
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
-use crate::buildings::guide::{show_demo_tool, show_build_tool};
+// use crate::buildings::guide::{show_demo_tool, show_build_tool};
 use crate::buildings::mine::{build_mine, mine_produce};
 use crate::buildings::templates::{
     load_building_templates, register_building_templates, BuildingTemplate, BuildingTemplateLoader,
@@ -21,7 +20,7 @@ use crate::input::{
     handle_keyboard_input, handle_mouse_input, map_cursor_pos, world_cursor_pos, MapCursorPos,
     WorldCursorPos,
 };
-use crate::map::{clear_buildings, toggle_grid, ActiveMap, GridState, MapEvent};
+use crate::map::{GridState, MapEvent};
 use crate::ui::{
     handle_select_tool, highlight_selected_tool, init_ui, track_ui_interaction, MapInteraction,
 };
@@ -40,7 +39,7 @@ fn startup(
     asset_server: Res<AssetServer>,
 ) {
     commands
-        .spawn_bundle(OrthographicCameraBundle::new_2d())
+        .spawn_bundle(Camera2dBundle::default())
         .insert(MainCamera);
 
     asset_server.watch_for_changes().unwrap();
@@ -68,7 +67,7 @@ fn main() {
         .with_system(handle_mouse_input)
         .with_system(handle_keyboard_input)
         .with_system(camera_movement)
-        .with_system(toggle_grid.after(handle_keyboard_input))
+        // .with_system(toggle_grid.after(handle_keyboard_input))
         .with_system(build_belt.after(handle_mouse_input))
         .with_system(demolish_building.after(handle_mouse_input))
         .with_system(mine_produce.before(move_items_on_belts))
@@ -77,11 +76,11 @@ fn main() {
         .with_system(input_from_belts.after(move_items_on_belts));
 
     let build_mode = SystemSet::on_update(AppState::BuildMode)
-        .with_system(show_build_tool)
+        // .with_system(show_build_tool)
         .with_system(handle_select_tool)
-        .with_system(clear_buildings)
+        // .with_system(clear_buildings)
         .with_system(highlight_selected_tool)
-        .with_system(show_demo_tool.after(show_build_tool))
+        // .with_system(show_demo_tool.after(show_build_tool))
         .with_system(build_building)
         .with_system(construct_building.after(build_building))
         .with_system(build_mine.after(construct_building))
@@ -95,7 +94,6 @@ fn main() {
         .add_state(AppState::InGame)
         .add_asset::<BuildingTemplate>()
         .add_asset_loader(BuildingTemplateLoader)
-        .init_resource::<ActiveMap>()
         .init_resource::<SelectedTool>()
         .init_resource::<BuildingTemplates>()
         .init_resource::<WorldCursorPos>()
@@ -111,6 +109,7 @@ fn main() {
         .add_startup_system(init_ui)
         .add_startup_system(load_building_templates)
         .add_system(register_building_templates)
+        .add_startup_system(init_map)
         .add_system_set(in_game_systems)
         .add_system_set(build_mode)
         .run();

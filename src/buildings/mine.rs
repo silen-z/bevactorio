@@ -5,7 +5,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::belts::{Belt, Item, ItemType};
 use crate::buildings::BuildingType;
-use crate::map::{ActiveMap, MapLayer};
+use crate::map::BuildingLayer;
 
 use super::Building;
 
@@ -34,16 +34,15 @@ pub fn mine_produce(
     mut commands: Commands,
     mut mines: Query<&mut Mine>,
     mut belts: Query<(Entity, &mut Belt)>,
-    mut map_query: MapQuery,
+    mut tilemap_query: Query<&TileStorage, With<BuildingLayer>>,
     time: Res<Time>,
     asset_server: ResMut<AssetServer>,
-    active_map: Res<ActiveMap>,
 ) {
+    let building_layer = tilemap_query.single();
+
     for mut mine in mines.iter_mut() {
         if mine.timer.tick(time.delta()).just_finished() {
-            let ouputs = output_positions(mine.output).flat_map(|pos| {
-                map_query.get_tile_entity(pos, active_map.map_id, MapLayer::Buildings)
-            });
+            let ouputs = output_positions(mine.output).flat_map(|pos| building_layer.get(&pos));
 
             for belt_entity in ouputs {
                 if let Ok((belt_entity, mut belt)) = belts.get_mut(belt_entity) {
@@ -70,8 +69,8 @@ pub fn mine_produce(
 
 fn output_positions(output: TilePos) -> impl Iterator<Item = TilePos> {
     [
-        (output.0 > 0).then(|| TilePos(output.0 - 1, output.1)),
-        (output.1 > 0).then(|| TilePos(output.0, output.1 - 1)),
+        (output.x > 0).then(|| TilePos::new(output.x - 1, output.y)),
+        (output.y > 0).then(|| TilePos::new(output.x, output.y - 1)),
     ]
     .into_iter()
     .flatten()

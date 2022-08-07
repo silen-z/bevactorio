@@ -12,13 +12,12 @@ impl SelectToolAction {
 }
 
 pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(UiCameraBundle { ..default() });
     let mut building_menu = commands.spawn_bundle(NodeBundle {
         color: Color::NONE.into(),
         style: Style {
             flex_direction: FlexDirection::ColumnReverse,
             position_type: PositionType::Absolute,
-            position: Rect {
+            position: UiRect {
                 top: Val::Px(16.),
                 left: Val::Px(16.),
                 ..default()
@@ -36,13 +35,13 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: Style {
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    padding: Rect {
+                    padding: UiRect {
                         left: Val::Px(16.),
                         right: Val::Px(16.),
                         top: Val::Px(8.),
                         bottom: Val::Px(8.),
                     },
-                    margin: Rect {
+                    margin: UiRect {
                         bottom: Val::Px(16.),
                         ..default()
                     },
@@ -144,12 +143,12 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn_bundle(NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect {
                     right: Val::Px(16.),
                     bottom: Val::Px(16.),
                     ..default()
                 },
-                padding: Rect::all(Val::Px(16.)),
+                padding: UiRect::all(Val::Px(16.)),
                 ..default()
             },
             color: Color::WHITE.into(),
@@ -157,7 +156,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|help_box| {
             help_box.spawn_bundle(TextBundle {
-                text: Text::with_section(
+                text: Text::from_section(
                     HELP_TEXT.to_string(),
                     TextStyle {
                         font: font.clone(),
@@ -165,7 +164,6 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         color: Color::DARK_GRAY,
                         ..default()
                     },
-                    TextAlignment::default(),
                 ),
                 ..default()
             });

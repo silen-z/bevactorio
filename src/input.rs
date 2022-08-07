@@ -1,25 +1,29 @@
 use bevy::input::keyboard::KeyboardInput;
-use bevy::input::ElementState;
+use bevy::input::ButtonState;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::{BuildRequestedEvent, BuildingType, DemolishEvent, SelectedTool};
 use crate::camera::MainCamera;
-use crate::map::{ActiveMap, MapEvent};
+use crate::map::{to_tile_pos, GridLayer, MapEvent};
 use crate::ui::MapInteraction;
 
 pub fn handle_mouse_input(
     mouse: Res<Input<MouseButton>>,
-    map_pos: Res<WorldCursorPos>,
+    cursor_pos: Res<WorldCursorPos>,
     mut build_events: EventWriter<BuildRequestedEvent>,
     mut demolish_events: EventWriter<DemolishEvent>,
     map_interaction: Res<MapInteraction>,
     selected_building: Res<SelectedTool>,
-    active_map: Res<ActiveMap>,
+    grid_layer_query: Query<(&TilemapSize, &TilemapTileSize, &Transform), With<GridLayer>>,
 ) {
-    if let Some(tile_pos) = map_pos.and_then(|cursor_pos| active_map.to_tile_pos(cursor_pos)) {
-        if mouse.just_pressed(MouseButton::Left) && map_interaction.is_allowed() {
+    let (map_size, tile_size, map_transform) = grid_layer_query.single();
+
+    if let Some(tile_pos) =
+        cursor_pos.and_then(|cp| to_tile_pos(cp, tile_size, map_size, map_transform))
+    {
+        if mouse.pressed(MouseButton::Left) && map_interaction.is_allowed() {
             match *selected_building {
                 SelectedTool::Build {
                     building,
@@ -50,19 +54,19 @@ pub fn handle_keyboard_input(
     for event in key_events.iter() {
         match event {
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::G),
                 ..
             } => map_events.send(MapEvent::ToggleGrid),
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::C),
                 ..
             } => map_events.send(MapEvent::ClearBuildings),
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::M),
                 ..
             } => {
@@ -73,7 +77,7 @@ pub fn handle_keyboard_input(
             }
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::B),
                 ..
             } => {
@@ -84,13 +88,13 @@ pub fn handle_keyboard_input(
             }
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::D),
                 ..
             } => *selected_tool = SelectedTool::Buldozer,
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::R),
                 ..
             } => selected_tool.rotate(),
@@ -128,7 +132,7 @@ pub fn world_cursor_pos(
         let ndc = (screen_pos / window_size) * 2.0 - Vec2::ONE;
 
         // matrix for undoing the projection and camera transform
-        let ndc_to_world = camera_transform.compute_matrix() * camera.projection_matrix.inverse();
+        let ndc_to_world = camera_transform.compute_matrix() * camera.projection_matrix().inverse();
 
         // use it to convert ndc to world-space coordinates
         let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
@@ -144,11 +148,18 @@ pub struct MapCursorPos(pub Option<TilePos>);
 pub fn map_cursor_pos(
     mut map_pos: ResMut<MapCursorPos>,
     world_pos: Res<WorldCursorPos>,
-    active_map: Res<ActiveMap>,
+    grid_layer_query: Query<(&TilemapSize, &TilemapTileSize, &Transform), With<GridLayer>>,
 ) {
-    let tile_pos = world_pos.and_then(|wp| active_map.to_tile_pos(wp));
+    let (map_size, tile_size, map_transform) = grid_layer_query.single();
 
-    if map_pos.0 != tile_pos {
-        map_pos.0 = tile_pos;
+    let tile_pos = world_pos.and_then(|wp| to_tile_pos(wp, tile_size, map_size, map_transform));
+
+    match (map_pos.0, tile_pos) {
+        (Some(TilePos { x: mx, y: my }), Some(TilePos { x: tx, y: ty }))
+            if mx != tx || my != ty =>
+        {
+            map_pos.0 = tile_pos;
+        }
+        _ => {}
     }
 }
