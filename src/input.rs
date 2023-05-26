@@ -1,7 +1,7 @@
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::ButtonState;
 use bevy::prelude::*;
-use bevy::render::camera::RenderTarget;
+use bevy::window::PrimaryWindow;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::{BuildRequestedEvent, BuildingType, DemolishEvent, SelectedTool};
@@ -104,12 +104,12 @@ pub fn handle_keyboard_input(
     }
 }
 
-#[derive(Default, Deref, DerefMut)]
+#[derive(Resource, Default, Deref, DerefMut)]
 pub struct WorldCursorPos(pub Option<Vec2>);
 
 pub fn world_cursor_pos(
     // need to get window dimensions
-    wnds: Res<Windows>,
+    window: Query<&Window, With<PrimaryWindow>>,
     // query to get camera transform
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut world_pos: ResMut<WorldCursorPos>,
@@ -118,11 +118,16 @@ pub fn world_cursor_pos(
     // assuming there is exactly one main camera entity, so query::single() is OK
     let (camera, camera_transform) = camera_query.single();
 
-    // get the window that the camera is displaying to (or the primary window)
-    let wnd = match camera.target {
-        RenderTarget::Window(id) => wnds.get(id).unwrap(),
-        _ => wnds.get_primary().unwrap(),
+    let Ok(wnd) = window.get_single() else {
+        return;
     };
+    // TODO figure out windowId and handle getting the correct window
+    // get the window that the camera is displaying to (or the primary window)
+    //
+    // let wnd = match camera.target {
+    //     RenderTarget::Window(id) => wnds.get(id).unwrap(),
+    //     _ => wi.get_primary().unwrap(),
+    // };
 
     world_pos.0 = wnd.cursor_position().map(|screen_pos| {
         // get the size of the window
@@ -142,7 +147,7 @@ pub fn world_cursor_pos(
     });
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct MapCursorPos(pub Option<TilePos>);
 
 pub fn map_cursor_pos(

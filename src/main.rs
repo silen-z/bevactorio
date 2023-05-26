@@ -33,65 +33,70 @@ mod input;
 mod map;
 mod ui;
 
-fn startup(
-    mut commands: Commands,
-    mut app_state: ResMut<State<AppState>>,
-    asset_server: Res<AssetServer>,
-) {
-    commands
-        .spawn_bundle(Camera2dBundle::default())
-        .insert(MainCamera);
+fn startup(mut commands: Commands, mut next_state: ResMut<NextState<AppState>>) {
+    commands.spawn(Camera2dBundle::default()).insert(MainCamera);
 
-    asset_server.watch_for_changes().unwrap();
-    let _ = app_state.push(AppState::BuildMode);
+    next_state.set(AppState::BuildMode);
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(States, Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]
 enum AppState {
+    #[default]
     InGame,
     BuildMode,
 }
 
 fn main() {
-    let window_settings = WindowDescriptor {
-        width: 1270.0,
-        height: 720.0,
+    let window_settings = Window {
+        resolution: (1270., 720.).into(),
         title: String::from("Bevactorio"),
         ..default()
     };
 
-    let in_game_systems = SystemSet::on_in_stack_update(AppState::InGame)
-        .with_system(world_cursor_pos)
-        .with_system(map_cursor_pos)
-        .with_system(track_ui_interaction)
-        .with_system(handle_mouse_input)
-        .with_system(handle_keyboard_input)
-        .with_system(camera_movement)
-        // .with_system(toggle_grid.after(handle_keyboard_input))
-        .with_system(build_belt.after(handle_mouse_input))
-        .with_system(demolish_building.after(handle_mouse_input))
-        .with_system(mine_produce.before(move_items_on_belts))
-        .with_system(move_items_on_belts)
-        .with_system(set_texture_filters_to_nearest)
-        .with_system(input_from_belts.after(move_items_on_belts));
+    let in_game_systems = (
+        world_cursor_pos,
+        map_cursor_pos,
+        track_ui_interaction,
+        handle_mouse_input,
+        handle_keyboard_input,
+        camera_movement,
+        // (toggle_grid.after(handle_keyboard_input))
+        build_belt.after(handle_mouse_input),
+        demolish_building.after(handle_mouse_input),
+        mine_produce.before(move_items_on_belts),
+        move_items_on_belts,
+        set_texture_filters_to_nearest,
+        input_from_belts.after(move_items_on_belts),
+    );
 
-    let build_mode = SystemSet::on_update(AppState::BuildMode)
-        // .with_system(show_build_tool)
-        .with_system(handle_select_tool)
-        // .with_system(clear_buildings)
-        .with_system(highlight_selected_tool)
-        // .with_system(show_demo_tool.after(show_build_tool))
-        .with_system(build_building)
-        .with_system(construct_building.after(build_building))
-        .with_system(build_mine.after(construct_building))
-        .with_system(build_chest.after(construct_building));
+    let build_mode = (
+        construct_building,
+        // (update_build_guide)
+        handle_select_tool,
+        // (clear_buildings)
+        highlight_selected_tool,
+        // (highlight_demolition.after(update_build_guide))
+        build_building,
+        build_mine.after(build_building),
+        build_chest,
+    );
 
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(window_settings),
+                    ..default()
+                })
+                .set(AssetPlugin {
+                    watch_for_changes: true,
+                    ..default()
+                }),
+        )
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(TilemapPlugin)
-        .add_state(AppState::InGame)
+        .add_state::<AppState>()
         .add_asset::<BuildingTemplate>()
         .add_asset_loader(BuildingTemplateLoader)
         .init_resource::<SelectedTool>()
@@ -101,7 +106,6 @@ fn main() {
         .init_resource::<GridState>()
         .init_resource::<MapInteraction>()
         .init_resource::<Zoom>()
-        .insert_resource(window_settings)
         .add_event::<BuildRequestedEvent>()
         .add_event::<DemolishEvent>()
         .add_event::<MapEvent>()
@@ -110,8 +114,8 @@ fn main() {
         .add_startup_system(load_building_templates)
         .add_system(register_building_templates)
         .add_startup_system(init_map)
-        .add_system_set(in_game_systems)
-        .add_system_set(build_mode)
+        .add_systems(in_game_systems.in_set(OnUpdate(AppState::InGame)))
+        .add_systems(build_mode.in_set(OnUpdate(AppState::BuildMode)))
         .run();
 }
 
@@ -123,7 +127,7 @@ pub fn set_texture_filters_to_nearest(
     // quick and dirty, run this for all textures anytime a texture is created.
     for event in texture_events.iter() {
         if let AssetEvent::Created { handle } = event {
-            if let Some(mut texture) = textures.get_mut(handle) {
+            if let Some(texture) = textures.get_mut(handle) {
                 texture.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
                     | TextureUsages::COPY_SRC
                     | TextureUsages::COPY_DST;

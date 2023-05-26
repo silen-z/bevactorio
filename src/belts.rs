@@ -39,7 +39,7 @@ pub struct Item {
 
 pub fn build_belt(
     mut commands: Commands,
-    mut tiles: Query<&mut TileTexture>,
+    mut tiles: Query<&mut TileTextureIndex>,
     mut events: EventReader<BuildRequestedEvent>,
     mut last_placed: Local<Option<(Entity, TilePos)>>,
     mut buildings_layer_query: Query<&mut TileStorage, With<BuildingLayer>>,
@@ -77,15 +77,14 @@ pub fn build_belt(
             .unwrap_or((BeltDown, false));
 
         let placed_belt = commands
-            .spawn()
-            .insert(Belt {
+            .spawn(Belt {
                 items: ArrayVec::new(),
             })
             .id();
 
-        building_layer.set(&event.tile_pos, Some(placed_belt));
+        building_layer.set(&event.tile_pos, placed_belt);
 
-        if let Some((last_e, last_pos)) = *last_placed {
+        if let Some((last_e, _)) = *last_placed {
             if let Some(mut last_tile) = tiles
                 .get_mut(last_e)
                 .ok()
@@ -124,15 +123,16 @@ fn belt_dir_between(
 
 pub fn move_items_on_belts(
     mut items: Query<&mut Transform, With<Item>>,
-    belt_tiles: Query<(Entity, &TilePos, &TileTexture), With<Belt>>,
-    mut belts: Query<(&mut Belt, &TileTexture)>,
+    belt_tiles: Query<(Entity, &TilePos, &TileTextureIndex), With<Belt>>,
+    mut belts: Query<(&mut Belt, &TileTextureIndex)>,
     mut building_layer_query: Query<
         (&mut TileStorage, &TilemapTileSize, &Transform),
         (With<BuildingLayer>, Without<Item>),
     >,
     time: Res<Time>,
 ) {
-    let (mut building_layer, tile_size, building_layer_transform) = building_layer_query.single_mut();
+    let (mut building_layer, tile_size, building_layer_transform) =
+        building_layer_query.single_mut();
 
     for (belt_entity, belt_pos, belt_tile) in belt_tiles.iter() {
         let building_type = BuildingTileType::from(*belt_tile);
@@ -181,7 +181,7 @@ fn try_move_item_between_belts(
     belt_entity: Entity,
     next_belt_pos: TilePos,
     building_layer: &TileStorage,
-    belts: &mut Query<(&mut Belt, &TileTexture)>,
+    belts: &mut Query<(&mut Belt, &TileTextureIndex)>,
     items: &mut Query<&mut Transform, With<Item>>,
     delta: f32,
     tile_size: &TilemapTileSize,
@@ -263,7 +263,7 @@ pub struct BeltInput {
 
 pub fn input_from_belts(
     mut commands: Commands,
-    mut belts: Query<(&mut Belt, &TilePos, &TileTexture)>,
+    mut belts: Query<(&mut Belt, &TilePos, &TileTextureIndex)>,
     items: Query<&Item>,
     mut inventories: Query<&mut Inventory>,
     inputs: Query<&BeltInput>,

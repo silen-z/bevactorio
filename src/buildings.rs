@@ -28,7 +28,7 @@ pub struct BuildingTile {
     pub building: Entity,
 }
 
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Resource, Default, Clone, PartialEq, Eq)]
 pub enum SelectedTool {
     #[default]
     None,
@@ -71,13 +71,16 @@ struct BuildingBundle {
 
 pub fn build_building(
     mut commands: Commands,
-    mut building_layer_query: Query<(&TilemapId, &mut TileStorage), With<BuildingLayer>>,
     mut request_events: EventReader<BuildRequestedEvent>,
     template_handles: Res<BuildingTemplates>,
     templates: Res<Assets<BuildingTemplate>>,
-    building_layer: Query<&TileStorage, With<BuildingLayer>>,
+    mut building_layer: Query<&mut TileStorage, With<BuildingLayer>>,
 ) {
-    let building_layer = building_layer.single();
+    if request_events.is_empty() {
+        return;
+    }
+
+    let building_layer = building_layer.single_mut();
 
     for event in request_events.iter() {
         let template_handle = template_handles.get(event.building_type);
@@ -88,7 +91,7 @@ pub fn build_building(
             .place(event.tile_pos, event.direction);
 
         if is_posible_to_build(&template, &building_layer) {
-            commands.spawn_bundle(BuildingBundle {
+            commands.spawn(BuildingBundle {
                 building_type: event.building_type,
                 origin: event.tile_pos,
                 template: template_handle,
@@ -100,7 +103,7 @@ pub fn build_building(
 
 pub fn construct_building(
     mut commands: Commands,
-    mut building_layer: Query<&mut TileStorage, With<BuildingLayer>>,
+    mut building_layer: Query<(Entity, &mut TileStorage), With<BuildingLayer>>,
     changed_buildings: Query<
         (
             Entity,
@@ -113,15 +116,16 @@ pub fn construct_building(
     >,
     templates: Res<Assets<BuildingTemplate>>,
 ) {
-    let mut building_layer = building_layer.single_mut();
+    let (building_layer_entity, mut building_layer) = building_layer.single_mut();
 
     for (building_entity, origin_pos, direction, template_handle, building) in
         changed_buildings.iter()
     {
+        // despawn tiles of previous building if it exists
         if let Some(Building { layout }) = building {
             for (entity, tile_pos, _) in &layout.tiles {
                 commands.entity(*entity).despawn_recursive();
-                building_layer.set(tile_pos, None);
+                building_layer.checked_remove(tile_pos);
             }
         }
 
@@ -130,14 +134,20 @@ pub fn construct_building(
             .unwrap()
             .place(*origin_pos, *direction);
 
+        let building_entity = commands.spawn_empty().id();
         let mut tiles = ArrayVec::new();
 
         for (tile_pos, tile_type) in template.instructions() {
-            let tile_entity = commands.spawn().insert(BuildingTile {
+            let tile_entity = commands.spawn(TileBundle {
+                position: tile_pos,
+                tilemap_id: TilemapId(building_layer_entity),
+                texture_index: TileTextureIndex(tile_type as u32),
+                ..default()
+            }).insert(BuildingTile {
                 building: building_entity,
             }).id();
 
-            building_layer.set(&tile_pos, Some(tile_entity));
+            building_layer.set(&tile_pos, tile_entity);
             tiles.push((tile_entity, tile_pos, tile_type));
         }
 
@@ -168,11 +178,11 @@ pub fn demolish_building(
                 .and_then(|bt| building_query.get(bt.building))
             {
                 for (_, tile_pos, _) in building.layout.tiles.iter() {
-                    let _ = building_layer.set(tile_pos, None);
+                    let _ = building_layer.remove(tile_pos);
                 }
                 commands.entity(building_entity).despawn();
             } else {
-                let _ = building_layer.set(&event.tile_pos, None);
+                let _ = building_layer.remove(&event.tile_pos);
             }
         }
     }
@@ -184,7 +194,7 @@ pub struct BuildGuide;
 // pub fn update_build_guide(
 //     mut commands: Commands,
 //     build_guides: Query<(&TilePos, &mut BuildGuide)>,
-//     tiles: Query<&TileTexture>,
+//     tiles: Query<&TileTextureIndex>,
 //     selected_tool: Res<SelectedTool>,
 //     mouse_pos: Res<MapCursorPos>,
 //     build_events: EventReader<BuildRequestedEvent>,

@@ -117,7 +117,7 @@ impl PlacedBuildingTemplate<'_> {
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct BuildingTemplates {
     templates: PreHashMap<BuildingType, Handle<BuildingTemplate>>,
     loading_handles: Vec<HandleUntyped>,
@@ -188,7 +188,7 @@ pub fn register_building_templates(
                 if let Some(index) = building_templates
                     .loading_handles
                     .iter()
-                    .position(|h| h.id == handle.id)
+                    .position(|h| h.id() == handle.id())
                 {
                     let template = templates.get(handle).unwrap();
                     let handle = building_templates.loading_handles.swap_remove(index);

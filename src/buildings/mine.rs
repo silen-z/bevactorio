@@ -3,11 +3,10 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
+use super::Building;
 use crate::belts::{Belt, Item, ItemType};
 use crate::buildings::BuildingType;
 use crate::map::BuildingLayer;
-
-use super::Building;
 
 #[derive(Component)]
 pub struct Mine {
@@ -21,9 +20,8 @@ pub fn build_mine(
 ) {
     for (entity, building_type, tile_pos) in new_buildings.iter() {
         if let BuildingType::Mine = building_type {
-            info!("built mine");
             commands.entity(entity).insert(Mine {
-                timer: Timer::new(Duration::from_secs(1), true),
+                timer: Timer::new(Duration::from_secs(1), TimerMode::Repeating),
                 output: *tile_pos,
             });
         }
@@ -48,7 +46,7 @@ pub fn mine_produce(
                 if let Ok((belt_entity, mut belt)) = belts.get_mut(belt_entity) {
                     if belt.place_new(0.33, || {
                         commands
-                            .spawn_bundle(SpriteBundle {
+                            .spawn(SpriteBundle {
                                 transform: Transform::from_xyz(0., 0., -9999.),
                                 texture: asset_server.load("items.png"),
                                 ..default()
