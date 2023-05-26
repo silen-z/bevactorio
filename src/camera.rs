@@ -4,7 +4,7 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct MainCamera;
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct Zoom(pub f32);
 
 // A simple camera system for moving and zooming the camera.

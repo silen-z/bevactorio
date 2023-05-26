@@ -120,44 +120,45 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Terrain layer
 
     let mut terrain_storage = TileStorage::empty(tilemap_size);
-    let terrain_tilemap = commands.spawn().insert(TerrainLayer).id();
+    let terrain_tilemap = commands.spawn_empty().insert(TerrainLayer).id();
 
-    bevy_ecs_tilemap::helpers::fill_tilemap(
-        TileTexture(0),
+    bevy_ecs_tilemap::helpers::filling::fill_tilemap(
+        TileTextureIndex(0),
         tilemap_size,
         TilemapId(terrain_tilemap),
         &mut commands,
         &mut terrain_storage,
     );
 
-    commands
-        .entity(terrain_tilemap)
-        .insert_bundle(TilemapBundle {
-            grid_size: TilemapGridSize { x: 16.0, y: 16.0 },
-            size: tilemap_size,
-            storage: terrain_storage,
-            texture: TilemapTexture(terrain_texture),
-            tile_size,
-            transform: bevy_ecs_tilemap::helpers::get_centered_transform_2d(
-                &tilemap_size,
-                &tile_size,
-                0.0,
-            ),
-            ..default()
-        });
+    let grid_size = TilemapGridSize { x: 16.0, y: 16.0 };
+    commands.entity(terrain_tilemap).insert(TilemapBundle {
+        grid_size,
+        size: tilemap_size,
+        storage: terrain_storage,
+        texture: TilemapTexture::Single(terrain_texture),
+        tile_size,
+        transform: bevy_ecs_tilemap::helpers::geometry::get_tilemap_center_transform(
+            &tilemap_size,
+            &grid_size,
+            &TilemapType::Square,
+            0.0,
+        ),
+        ..default()
+    });
 
     // Building Layer
 
     commands
-        .spawn_bundle(TilemapBundle {
-            grid_size: TilemapGridSize { x: 16.0, y: 16.0 },
+        .spawn(TilemapBundle {
+            grid_size,
             size: tilemap_size,
             storage: TileStorage::empty(tilemap_size),
-            texture: TilemapTexture(buildings_texture),
+            texture: TilemapTexture::Single(buildings_texture),
             tile_size,
-            transform: bevy_ecs_tilemap::helpers::get_centered_transform_2d(
+            transform: bevy_ecs_tilemap::helpers::geometry::get_tilemap_center_transform(
                 &tilemap_size,
-                &tile_size,
+                &grid_size,
+                &TilemapType::Square,
                 1.0,
             ),
             ..default()
@@ -167,25 +168,26 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Grid layer
 
     let mut grid_storage = TileStorage::empty(tilemap_size);
-    let grid_tilemap = commands.spawn().insert(GridLayer).id();
+    let grid_tilemap = commands.spawn(GridLayer).id();
 
-    bevy_ecs_tilemap::helpers::fill_tilemap(
-        TileTexture(0),
+    bevy_ecs_tilemap::helpers::filling::fill_tilemap(
+        TileTextureIndex(0),
         tilemap_size,
         TilemapId(grid_tilemap),
         &mut commands,
         &mut grid_storage,
     );
 
-    commands.entity(grid_tilemap).insert_bundle(TilemapBundle {
-        grid_size: TilemapGridSize { x: 16.0, y: 16.0 },
+    commands.entity(grid_tilemap).insert(TilemapBundle {
+        grid_size,
         size: tilemap_size,
         storage: grid_storage,
-        texture: TilemapTexture(grid_texture),
+        texture: TilemapTexture::Single(grid_texture),
         tile_size,
-        transform: bevy_ecs_tilemap::helpers::get_centered_transform_2d(
+        transform: bevy_ecs_tilemap::helpers::geometry::get_tilemap_center_transform(
             &tilemap_size,
-            &tile_size,
+            &grid_size,
+            &TilemapType::Square,
             2.0,
         ),
         ..default()
@@ -197,6 +199,7 @@ pub enum MapEvent {
     ClearBuildings,
 }
 
+#[derive(Resource)]
 pub enum GridState {
     Enabled,
     Disabled,
@@ -279,8 +282,8 @@ const MAX_GRID_ZOOM: f32 = 2.;
 //     }
 // }
 
-impl From<TileTexture> for BuildingTileType {
-    fn from(texture_index: TileTexture) -> Self {
+impl From<TileTextureIndex> for BuildingTileType {
+    fn from(texture_index: TileTextureIndex) -> Self {
         match texture_index.0 {
             x if x >= BuildingTileType::BeltUp as u32 && x <= BuildingTileType::Chest as u32 => unsafe {
                 std::mem::transmute(x)
@@ -299,10 +302,10 @@ impl From<TileTexture> for BuildingTileType {
 //     }
 // }
 
-impl TryFrom<TileTexture> for TerrainType {
+impl TryFrom<TileTextureIndex> for TerrainType {
     type Error = ();
 
-    fn try_from(tile: TileTexture) -> Result<Self, ()> {
+    fn try_from(tile: TileTextureIndex) -> Result<Self, ()> {
         match tile.0 {
             x if x >= TerrainType::Grass as u32 && x <= TerrainType::Grass as u32 => {
                 Ok(unsafe { std::mem::transmute(x) })

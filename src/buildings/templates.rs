@@ -1,10 +1,12 @@
 use arrayvec::ArrayVec;
+use bevy::prelude::Resource;
 use bevy::utils::HashMap;
 use bevy_ecs_tilemap::prelude::*;
 
 use super::BuildingTileType::*;
 use super::{BuildingTileType, BuildingType, MAX_BUILDING_SIZE};
 
+#[derive(Resource)]
 pub struct BuildingTemplates {
     pub templates: HashMap<BuildingType, BuildingTemplate>,
 }

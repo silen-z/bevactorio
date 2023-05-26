@@ -24,7 +24,7 @@ pub fn build_mine(mut commands: Commands, mut new_buildings: EventReader<Buildin
                 .unwrap();
 
             commands.entity(event.entity).insert(Mine {
-                timer: Timer::new(Duration::from_secs(1), true),
+                timer: Timer::new(Duration::from_secs(1), TimerMode::Repeating),
                 output: *output,
             });
         }
@@ -49,7 +49,7 @@ pub fn mine_produce(
                 if let Ok((belt_entity, mut belt)) = belts.get_mut(belt_entity) {
                     if belt.place_new(0.33, || {
                         commands
-                            .spawn_bundle(SpriteBundle {
+                            .spawn(SpriteBundle {
                                 transform: Transform::from_xyz(0., 0., -9999.),
                                 texture: asset_server.load("items.png"),
                                 ..default()

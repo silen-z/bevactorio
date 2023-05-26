@@ -28,7 +28,7 @@ pub struct BuildingTile {
     pub building: Entity,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Resource, Clone, PartialEq, Eq)]
 pub enum SelectedTool {
     None,
     Building(BuildingType),
@@ -66,6 +66,10 @@ pub fn build_building(
     mut building_events: EventWriter<BuildingBuiltEvent>,
     buildings: Res<BuildingTemplates>,
 ) {
+    if request_events.is_empty() {
+        return;
+    }
+
     let (tilemap_id, mut building_layer) = building_layer_query.single_mut();
 
     for event in request_events.iter() {
@@ -75,16 +79,16 @@ pub fn build_building(
             continue;
         }
 
-        let building_entity = commands.spawn().id();
+        let building_entity = commands.spawn_empty().id();
 
         let mut tiles = ArrayVec::new();
 
         for (tile_pos, tile_type) in template.instructions {
             let building_tile_entity = commands
-                .spawn_bundle(TileBundle {
+                .spawn(TileBundle {
                     position: tile_pos,
                     tilemap_id: *tilemap_id,
-                    texture: TileTexture(tile_type as u32),
+                    texture_index: TileTextureIndex(tile_type as u32),
                     ..default()
                 })
                 .insert(BuildingTile {
@@ -92,7 +96,7 @@ pub fn build_building(
                 })
                 .id();
 
-            building_layer.set(&tile_pos, Some(building_tile_entity));
+            building_layer.set(&tile_pos, building_tile_entity);
             tiles.push((building_tile_entity, tile_pos, tile_type));
         }
 
@@ -130,11 +134,11 @@ pub fn demolish_building(
                 .and_then(|bt| building_query.get(bt.building))
             {
                 for (_, tile_pos, _) in building.layout.tiles.iter() {
-                    let _ = building_layer.set(tile_pos, None);
+                    let _ = building_layer.remove(tile_pos);
                 }
                 commands.entity(building_entity).despawn();
             } else {
-                let _ = building_layer.set(&event.tile_pos, None);
+                let _ = building_layer.remove(&event.tile_pos);
             }
         }
     }
@@ -146,7 +150,7 @@ pub struct BuildGuide;
 // pub fn update_build_guide(
 //     mut commands: Commands,
 //     build_guides: Query<(&TilePos, &mut BuildGuide)>,
-//     tiles: Query<&TileTexture>,
+//     tiles: Query<&TileTextureIndex>,
 //     selected_tool: Res<SelectedTool>,
 //     mouse_pos: Res<MapCursorPos>,
 //     build_events: EventReader<BuildRequestedEvent>,

@@ -6,8 +6,8 @@ use crate::buildings::{BuildingType, SelectedTool};
 pub struct SelectToolAction(SelectedTool);
 
 pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let mut building_menu = commands.spawn_bundle(NodeBundle {
-        color: Color::NONE.into(),
+    let mut building_menu = commands.spawn(NodeBundle {
+        background_color: Color::NONE.into(),
         style: Style {
             flex_direction: FlexDirection::ColumnReverse,
             position_type: PositionType::Absolute,
@@ -25,7 +25,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let button_builder = |parent: &mut ChildBuilder, text, action| {
         parent
-            .spawn_bundle(ButtonBundle {
+            .spawn(ButtonBundle {
                 style: Style {
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
@@ -45,7 +45,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             })
             .insert(action)
             .with_children(|button| {
-                button.spawn_bundle(TextBundle { text, ..default() });
+                button.spawn(TextBundle { text, ..default() });
             });
     };
 
@@ -108,7 +108,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
                 position: UiRect {
@@ -119,11 +119,11 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 padding: UiRect::all(Val::Px(16.)),
                 ..default()
             },
-            color: Color::WHITE.into(),
+            background_color: Color::WHITE.into(),
             ..default()
         })
         .with_children(|help_box| {
-            help_box.spawn_bundle(TextBundle {
+            help_box.spawn(TextBundle {
                 text: Text::from_section(
                     HELP_TEXT.to_string(),
                     TextStyle {
@@ -153,8 +153,8 @@ pub fn handle_select_tool(
 
 pub fn highlight_selected_tool(
     selected_tool: Res<SelectedTool>,
-    mut elements: Query<(Entity, &mut UiColor, &SelectToolAction)>,
-    mut highlighted_nodes: Local<Vec<(Entity, UiColor)>>,
+    mut elements: Query<(Entity, &mut BackgroundColor, &SelectToolAction)>,
+    mut highlighted_nodes: Local<Vec<(Entity, BackgroundColor)>>,
 ) {
     if selected_tool.is_changed() {
         // clear highlights
@@ -174,7 +174,7 @@ pub fn highlight_selected_tool(
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct MapInteraction(bool);
 
 impl MapInteraction {
