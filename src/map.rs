@@ -1,4 +1,5 @@
 use std::num::ParseIntError;
+use std::ops::Not;
 
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
@@ -212,24 +213,50 @@ pub enum MapEvent {
     ClearBuildings,
 }
 
-#[derive(Resource)]
-pub enum GridState {
+#[derive(Resource, Clone, Copy)]
+pub enum Grid {
     Enabled,
     Disabled,
 }
 
-impl Default for GridState {
+impl Default for Grid {
     fn default() -> Self {
-        GridState::Enabled
+        Grid::Enabled
     }
 }
 
-impl GridState {
-    pub fn toggle(&mut self) {
-        *self = match self {
-            GridState::Enabled => GridState::Disabled,
-            GridState::Disabled => GridState::Enabled,
+impl Not for Grid {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Grid::Enabled => Grid::Disabled,
+            Grid::Disabled => Grid::Enabled,
         }
+    }
+}
+
+impl From<bool> for Grid {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Grid::Enabled,
+            false => Grid::Disabled,
+        }
+    }
+}
+
+impl From<Grid> for bool {
+    fn from(value: Grid) -> Self {
+        match value {
+            Grid::Enabled => true,
+            Grid::Disabled => false
+        }
+    }
+}
+ 
+impl Grid {
+    pub fn toggle(&mut self) {
+        *self = !*self;
     }
 }
 
@@ -265,35 +292,30 @@ impl GridState {
 
 const MAX_GRID_ZOOM: f32 = 2.;
 
-// pub fn toggle_grid(
-//     mut layers: Query<&mut Transform>,
-//     mut map_query: MapQuery,
-//     mut map_events: EventReader<MapEvent>,
-//     mut grid_state: ResMut<GridState>,
-//     zoom: Res<Zoom>,
-//     active_map: Res<ActiveMap>,
-// ) {
-//     for _ in map_events
-//         .iter()
-//         .filter(|e| matches!(e, MapEvent::ToggleGrid))
-//     {
-//         grid_state.toggle();
-//     }
+pub fn toggle_grid(
+    mut grid_layer: Query<&mut Visibility, With<GridLayer>>,
+    mut map_events: EventReader<MapEvent>,
+    mut grid_state: ResMut<Grid>,
+    zoom: Res<Zoom>,
+) {
+    for _ in map_events
+        .iter()
+        .filter(|e| matches!(e, MapEvent::ToggleGrid))
+    {
+        grid_state.toggle();
+    }
 
-//     if !grid_state.is_changed() && !zoom.is_changed() {
-//         return;
-//     }
+    if !grid_state.is_changed() && !zoom.is_changed() {
+        return;
+    }
 
-//     if let Some(mut transform) = map_query
-//         .get_layer(active_map.map_id, MapLayer::Grid)
-//         .and_then(|(e, _)| layers.get_mut(e).ok())
-//     {
-//         transform.translation.z = match *grid_state {
-//             GridState::Enabled if zoom.0 < MAX_GRID_ZOOM => u16::from(MapLayer::Grid) as f32,
-//             _ => -10.0,
-//         };
-//     }
-// }
+    if let Ok(mut grid_visibility) = grid_layer.get_single_mut() {
+        *grid_visibility = match matches!(*grid_state, Grid::Enabled) && zoom.0 < MAX_GRID_ZOOM {
+            true => Visibility::Visible,
+            false => Visibility::Hidden,
+        }
+    };
+}
 
 impl From<TileTextureIndex> for BuildingTileType {
     fn from(texture_index: TileTextureIndex) -> Self {

@@ -1,7 +1,7 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
-use map::init_map;
+use map::{init_map, toggle_grid};
 
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
@@ -20,7 +20,7 @@ use crate::input::{
     handle_keyboard_input, handle_mouse_input, map_cursor_pos, world_cursor_pos, MapCursorPos,
     WorldCursorPos,
 };
-use crate::map::{GridState, MapEvent};
+use crate::map::{Grid, MapEvent};
 use crate::ui::{
     handle_select_tool, highlight_selected_tool, init_ui, track_ui_interaction, MapInteraction,
 };
@@ -60,12 +60,11 @@ fn main() {
         handle_mouse_input,
         handle_keyboard_input,
         camera_movement,
-        // (toggle_grid.after(handle_keyboard_input))
+        toggle_grid.after(handle_keyboard_input),
         build_belt.after(handle_mouse_input),
         demolish_building.after(handle_mouse_input),
         mine_produce.before(move_items_on_belts),
         move_items_on_belts,
-        set_texture_filters_to_nearest,
         input_from_belts.after(move_items_on_belts),
     );
 
@@ -91,7 +90,8 @@ fn main() {
                 .set(AssetPlugin {
                     watch_for_changes: true,
                     ..default()
-                }),
+                })
+                .set(ImagePlugin::default_nearest()),
         )
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
@@ -103,7 +103,7 @@ fn main() {
         .init_resource::<BuildingTemplates>()
         .init_resource::<WorldCursorPos>()
         .init_resource::<MapCursorPos>()
-        .init_resource::<GridState>()
+        .init_resource::<Grid>()
         .init_resource::<MapInteraction>()
         .init_resource::<Zoom>()
         .add_event::<BuildRequestedEvent>()
@@ -114,24 +114,7 @@ fn main() {
         .add_startup_system(load_building_templates)
         .add_system(register_building_templates)
         .add_startup_system(init_map)
-        .add_systems(in_game_systems.in_set(OnUpdate(AppState::InGame)))
+        .add_systems(in_game_systems)
         .add_systems(build_mode.in_set(OnUpdate(AppState::BuildMode)))
         .run();
-}
-
-pub fn set_texture_filters_to_nearest(
-    mut texture_events: EventReader<AssetEvent<Image>>,
-    mut textures: ResMut<Assets<Image>>,
-) {
-    use bevy::render::render_resource::TextureUsages;
-    // quick and dirty, run this for all textures anytime a texture is created.
-    for event in texture_events.iter() {
-        if let AssetEvent::Created { handle } = event {
-            if let Some(texture) = textures.get_mut(handle) {
-                texture.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
-                    | TextureUsages::COPY_SRC
-                    | TextureUsages::COPY_DST;
-            }
-        }
-    }
 }
