@@ -3,7 +3,7 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
-use buildings::update_build_guide;
+use buildings::{update_build_guide, highlight_demolition};
 use map::{init_map, toggle_grid, clear_buildings};
 
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
@@ -71,7 +71,7 @@ fn main() {
         handle_select_tool,
         clear_buildings,
         highlight_selected_tool,
-        // (highlight_demolition.after(update_build_guide))
+        highlight_demolition.after(update_build_guide),
         build_building,
         build_mine.after(build_building),
         build_chest,
