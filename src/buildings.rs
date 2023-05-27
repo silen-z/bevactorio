@@ -53,6 +53,12 @@ pub struct BuildingLayout {
     pub tiles: ArrayVec<(Entity, TilePos, BuildingTileType), MAX_BUILDING_SIZE>,
 }
 
+impl BuildingLayout {
+    pub fn contains(&self, tile: &TilePos) -> bool {
+        self.tiles.iter().any(|(_, pos, _)| pos == tile)
+    }
+}
+
 pub struct BuildingBuiltEvent {
     pub building_type: BuildingType,
     pub entity: Entity,
@@ -61,16 +67,12 @@ pub struct BuildingBuiltEvent {
 
 pub fn build_building(
     mut commands: Commands,
-    mut building_layer_query: Query<(&TilemapId, &mut TileStorage), With<BuildingLayer>>,
+    mut building_layer_query: Query<(Entity, &mut TileStorage), With<BuildingLayer>>,
     mut request_events: EventReader<BuildRequestedEvent>,
     mut building_events: EventWriter<BuildingBuiltEvent>,
     buildings: Res<BuildingTemplates>,
 ) {
-    if request_events.is_empty() {
-        return;
-    }
-
-    let (tilemap_id, mut building_layer) = building_layer_query.single_mut();
+    let (tilemap_entity, mut building_layer) = building_layer_query.single_mut();
 
     for event in request_events.iter() {
         let template = buildings.templates[&event.building_type].with_origin(event.tile_pos);
@@ -87,7 +89,7 @@ pub fn build_building(
             let building_tile_entity = commands
                 .spawn(TileBundle {
                     position: tile_pos,
-                    tilemap_id: *tilemap_id,
+                    tilemap_id: TilemapId(tilemap_entity),
                     texture_index: TileTextureIndex(tile_type as u32),
                     ..default()
                 })
@@ -133,12 +135,13 @@ pub fn demolish_building(
                 .get(tile_entity)
                 .and_then(|bt| building_query.get(bt.building))
             {
-                for (_, tile_pos, _) in building.layout.tiles.iter() {
-                    let _ = building_layer.remove(tile_pos);
+                for (e, tile_pos, _) in building.layout.tiles.iter() {
+                    commands.entity(*e).despawn_recursive();
+                    building_layer.checked_remove(tile_pos);
                 }
                 commands.entity(building_entity).despawn();
             } else {
-                let _ = building_layer.remove(&event.tile_pos);
+                building_layer.checked_remove(&event.tile_pos);
             }
         }
     }
@@ -216,9 +219,9 @@ pub fn highlight_demolition(
     build_events: EventReader<BuildRequestedEvent>,
     demolish_events: EventReader<DemolishEvent>,
     map_interaction: Res<MapInteraction>,
-    mut building_tiles: Query<(&mut TileColor)>,
+    mut building_tiles: Query<&mut TileColor>,
     mut guide_tiles: Query<(Entity, &mut TileStorage), With<BuildGuideLayer>>,
-    mut highlighted_buildings: Local<Vec<(TilePos, Entity)>>,
+    mut highlighted_buildings: Local<Vec<Entity>>,
 ) {
     if mouse_pos.is_changed()
         || selected_tool.is_changed()
@@ -231,7 +234,7 @@ pub fn highlight_demolition(
         };
 
         // clear previously highlighted building tiles
-        for (pos, e) in highlighted_buildings.drain(..) {
+        for e in highlighted_buildings.drain(..) {
             if let Ok(mut tile) = building_tiles.get_mut(e) {
                 *tile = default();
             }
@@ -251,19 +254,18 @@ pub fn highlight_demolition(
                 
                 guide_tiles.checked_set(&tile_pos, entity);
 
-                let demolished_building = buildings
-                .iter()
-                .find_map(|b| b.layout.tiles.iter().any(|(_, pos, _)| *pos == tile_pos).then_some(b));
+                let Some(building) = buildings.iter().find(|b| b.layout.contains(&tile_pos)) else {
+                    return;
+                };
 
                 // highlight tiles of a building about to be demolished
-                if let Some(building) = demolished_building {
-                    for (e, pos, _) in building.layout.tiles.iter() {
-                        if let Ok(mut tile) = building_tiles.get_mut(*e) {
-                            highlighted_buildings.push((*pos, *e));
-                                *tile = Color::RED.into();
-                        }
+                for (e, _ , _) in building.layout.tiles.iter() {
+                    if let Ok(mut tile) = building_tiles.get_mut(*e) {
+                        highlighted_buildings.push(*e);
+                        *tile = Color::RED.into();
                     }
                 }
+    
             });
         }
     }

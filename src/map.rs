@@ -1,10 +1,7 @@
-use std::ops::Not;
-
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::Building;
-use crate::camera::Zoom;
 
 #[derive(Component)]
 pub struct TerrainLayer;
@@ -14,9 +11,6 @@ pub struct BuildingLayer;
 
 #[derive(Component)]
 pub struct BuildGuideLayer;
-
-#[derive(Component)]
-pub struct GridLayer;
 
 // #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 // #[repr(u16)]
@@ -118,37 +112,37 @@ pub fn to_tile_pos(
         .then_some(TilePos::new(x as u32, y as u32))
 }
 
+pub const TILE_SIZE: TilemapTileSize = TilemapTileSize { x: 16., y: 16. };
+pub const TILEMAP_SIZE: TilemapSize = TilemapSize { x: 64, y: 64 };
+
+pub const GRID_SIZE: TilemapGridSize = TilemapGridSize { x: 16., y: 16. };
+
 pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     let terrain_texture = asset_server.load("tilesets/terrain.png");
     let buildings_texture = asset_server.load("tilesets/buildings.png");
-    let grid_texture = asset_server.load("tilesets/grid.png");
-
-    let tile_size = TilemapTileSize { x: 16., y: 16. };
-    let tilemap_size = TilemapSize { x: 64, y: 64 };
 
     // Terrain layer
 
-    let mut terrain_storage = TileStorage::empty(tilemap_size);
+    let mut terrain_storage = TileStorage::empty(TILEMAP_SIZE);
     let terrain_tilemap = commands.spawn(TerrainLayer).id();
 
     bevy_ecs_tilemap::helpers::filling::fill_tilemap(
         TileTextureIndex(0),
-        tilemap_size,
+        TILEMAP_SIZE,
         TilemapId(terrain_tilemap),
         &mut commands,
         &mut terrain_storage,
     );
 
-    let grid_size = TilemapGridSize { x: 16.0, y: 16.0 };
     commands.entity(terrain_tilemap).insert(TilemapBundle {
-        grid_size,
-        size: tilemap_size,
+        grid_size: GRID_SIZE,
+        size: TILEMAP_SIZE,
         storage: terrain_storage,
         texture: TilemapTexture::Single(terrain_texture),
-        tile_size,
+        tile_size: TILE_SIZE,
         transform: bevy_ecs_tilemap::helpers::geometry::get_tilemap_center_transform(
-            &tilemap_size,
-            &grid_size,
+            &TILEMAP_SIZE,
+            &GRID_SIZE,
             &TilemapType::Square,
             0.0,
         ),
@@ -159,14 +153,14 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(TilemapBundle {
-            grid_size,
-            size: tilemap_size,
-            storage: TileStorage::empty(tilemap_size),
+            grid_size: GRID_SIZE,
+            size: TILEMAP_SIZE,
+            storage: TileStorage::empty(TILEMAP_SIZE),
             texture: TilemapTexture::Single(buildings_texture.clone()),
-            tile_size,
+            tile_size: TILE_SIZE,
             transform: bevy_ecs_tilemap::helpers::geometry::get_tilemap_center_transform(
-                &tilemap_size,
-                &grid_size,
+                &TILEMAP_SIZE,
+                &GRID_SIZE,
                 &TilemapType::Square,
                 1.0,
             ),
@@ -178,48 +172,20 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(TilemapBundle {
-            grid_size,
-            size: tilemap_size,
-            storage: TileStorage::empty(tilemap_size),
+            grid_size:GRID_SIZE,
+            size: TILEMAP_SIZE,
+            storage: TileStorage::empty(TILEMAP_SIZE),
             texture: TilemapTexture::Single(buildings_texture),
-            tile_size,
+            tile_size: TILE_SIZE,
             transform: bevy_ecs_tilemap::helpers::geometry::get_tilemap_center_transform(
-                &tilemap_size,
-                &grid_size,
+                &TILEMAP_SIZE,
+                &GRID_SIZE,
                 &TilemapType::Square,
                 2.0,
             ),
             ..default()
         })
         .insert(BuildGuideLayer);
-
-    // Grid layer
-
-    let mut grid_storage = TileStorage::empty(tilemap_size);
-    let grid_tilemap = commands.spawn(GridLayer).id();
-
-    bevy_ecs_tilemap::helpers::filling::fill_tilemap(
-        TileTextureIndex(0),
-        tilemap_size,
-        TilemapId(grid_tilemap),
-        &mut commands,
-        &mut grid_storage,
-    );
-
-    commands.entity(grid_tilemap).insert(TilemapBundle {
-        grid_size,
-        size: tilemap_size,
-        storage: grid_storage,
-        texture: TilemapTexture::Single(grid_texture),
-        tile_size,
-        transform: bevy_ecs_tilemap::helpers::geometry::get_tilemap_center_transform(
-            &tilemap_size,
-            &grid_size,
-            &TilemapType::Square,
-            3.0,
-        ),
-        ..default()
-    });
 }
 
 pub enum MapEvent {
@@ -227,102 +193,30 @@ pub enum MapEvent {
     ClearBuildings,
 }
 
-#[derive(Resource, Clone, Copy)]
-pub enum Grid {
-    Enabled,
-    Disabled,
-}
-
-impl Default for Grid {
-    fn default() -> Self {
-        Grid::Enabled
-    }
-}
-
-impl Not for Grid {
-    type Output = Self;
-
-    fn not(self) -> Self::Output {
-        match self {
-            Grid::Enabled => Grid::Disabled,
-            Grid::Disabled => Grid::Enabled,
-        }
-    }
-}
-
-impl From<bool> for Grid {
-    fn from(value: bool) -> Self {
-        match value {
-            true => Grid::Enabled,
-            false => Grid::Disabled,
-        }
-    }
-}
-
-impl From<Grid> for bool {
-    fn from(value: Grid) -> Self {
-        match value {
-            Grid::Enabled => true,
-            Grid::Disabled => false,
-        }
-    }
-}
-
-impl Grid {
-    pub fn toggle(&mut self) {
-        *self = !*self;
-    }
-}
-
 pub fn clear_buildings(
     mut commands: Commands,
-    mut map_events: EventReader<MapEvent>,
     buildings: Query<(Entity, &Building)>,
     mut building_tilemap: Query<&mut TileStorage, With<BuildingLayer>>,
 ) {
-    if map_events
-        .iter()
-        .any(|e| matches!(e, MapEvent::ClearBuildings))
-    {
-        let Ok(mut building_tilemap) = building_tilemap.get_single_mut() else {
+    let Ok(mut building_tilemap) = building_tilemap.get_single_mut() else {
+            error!("no building layer");
             return;
         };
 
-        for (building_entity, building) in buildings.iter() {
-            for (_, tile_pos, _) in &building.layout.tiles {
-                let _ = building_tilemap.checked_remove(tile_pos);
-            }
-
-            commands.entity(building_entity).despawn();
+    for (building_entity, building) in buildings.iter() {
+        for (entity, tile_pos, _) in &building.layout.tiles {
+            commands.entity(*entity).despawn_recursive();
+            building_tilemap.checked_remove(tile_pos);
         }
+
+        commands.entity(building_entity).despawn();
     }
 }
 
-const MAX_GRID_ZOOM: f32 = 2.;
-
-pub fn toggle_grid(
-    mut grid_layer: Query<&mut Visibility, With<GridLayer>>,
-    mut map_events: EventReader<MapEvent>,
-    mut grid_state: ResMut<Grid>,
-    zoom: Res<Zoom>,
-) {
-    for _ in map_events
+pub fn should_clear_buildings(mut map_events: EventReader<MapEvent>) -> bool {
+    map_events
         .iter()
-        .filter(|e| matches!(e, MapEvent::ToggleGrid))
-    {
-        grid_state.toggle();
-    }
-
-    if !grid_state.is_changed() && !zoom.is_changed() {
-        return;
-    }
-
-    if let Ok(mut grid_visibility) = grid_layer.get_single_mut() {
-        *grid_visibility = match matches!(*grid_state, Grid::Enabled) && zoom.0 < MAX_GRID_ZOOM {
-            true => Visibility::Visible,
-            false => Visibility::Hidden,
-        }
-    };
+        .any(|e| matches!(e, MapEvent::ClearBuildings))
 }
 
 impl From<TileTextureIndex> for BuildingTileType {
