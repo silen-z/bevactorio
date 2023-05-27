@@ -7,7 +7,8 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::{BuildRequestedEvent, BuildingType, DemolishEvent, SelectedTool};
 use crate::camera::MainCamera;
-use crate::map::{to_tile_pos, GridLayer, MapEvent};
+use crate::grid::GridLayer;
+use crate::map::{to_tile_pos, MapEvent};
 use crate::ui::MapInteraction;
 
 pub fn handle_mouse_input(

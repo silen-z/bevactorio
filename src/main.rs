@@ -4,7 +4,8 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use buildings::guide::{update_build_guide, highlight_demolition};
-use map::{init_map, toggle_grid, clear_buildings};
+use grid::Grid;
+use map::{init_map,  clear_buildings, should_clear_buildings};
 
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
@@ -22,7 +23,8 @@ use crate::input::{
     handle_keyboard_input, handle_mouse_input, map_cursor_pos, world_cursor_pos, MapCursorPos,
     WorldCursorPos,
 };
-use crate::map::{Grid, MapEvent};
+use crate::map::MapEvent;
+use crate::grid::{create_grid_layer, toggle_grid};
 use crate::ui::{
     handle_select_tool, highlight_selected_tool, init_ui, track_ui_interaction, MapInteraction,
 };
@@ -31,6 +33,7 @@ mod belts;
 mod buildings;
 mod camera;
 mod direction;
+mod grid;
 mod input;
 mod map;
 mod ui;
@@ -74,10 +77,10 @@ fn main() {
         construct_building,
         update_build_guide,
         handle_select_tool,
-        clear_buildings,
+        clear_buildings.run_if(should_clear_buildings),
         highlight_selected_tool,
         highlight_demolition.after(update_build_guide),
-        build_building,
+        build_building.run_if(on_event::<BuildRequestedEvent>()),
         build_mine.after(build_building),
         build_chest,
     );
@@ -116,6 +119,7 @@ fn main() {
         .add_startup_system(load_building_templates)
         .add_system(register_building_templates)
         .add_startup_system(init_map)
+        .add_startup_system(create_grid_layer)
         .add_systems(in_game_systems)
         .add_systems(build_mode.in_set(OnUpdate(AppState::BuildMode)))
         .run();

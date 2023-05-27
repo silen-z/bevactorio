@@ -183,12 +183,13 @@ pub fn demolish_building(
                 .get(tile_entity)
                 .and_then(|bt| building_query.get(bt.building))
             {
-                for (_, tile_pos, _) in building.layout.tiles.iter() {
-                    let _ = building_layer.remove(tile_pos);
+                for (e, tile_pos, _) in building.layout.tiles.iter() {
+                    commands.entity(*e).despawn_recursive();
+                    building_layer.checked_remove(tile_pos);
                 }
                 commands.entity(building_entity).despawn();
             } else {
-                let _ = building_layer.remove(&event.tile_pos);
+                building_layer.checked_remove(&event.tile_pos);
             }
         }
     }
