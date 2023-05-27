@@ -1,7 +1,10 @@
+#![feature(let_chains)]
+
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
-use map::{init_map, toggle_grid};
+use buildings::update_build_guide;
+use map::{init_map, toggle_grid, clear_buildings};
 
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
@@ -64,9 +67,9 @@ fn main() {
     );
 
     let build_mode = (
-        // (update_build_guide)
+        update_build_guide,
         handle_select_tool,
-        // (clear_buildings)
+        clear_buildings,
         highlight_selected_tool,
         // (highlight_demolition.after(update_build_guide))
         build_building,

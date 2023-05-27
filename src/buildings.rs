@@ -4,7 +4,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use self::templates::BuildingTemplates;
 use crate::input::MapCursorPos;
-use crate::map::{BuildingLayer, BuildingTileType};
+use crate::map::{BuildingLayer, BuildingTileType, BuildGuideLayer};
 use crate::ui::MapInteraction;
 
 pub mod chest;
@@ -50,7 +50,7 @@ pub const MAX_BUILDING_SIZE: usize = 9;
 
 #[derive(Clone)]
 pub struct BuildingLayout {
-    tiles: ArrayVec<(Entity, TilePos, BuildingTileType), MAX_BUILDING_SIZE>,
+    pub tiles: ArrayVec<(Entity, TilePos, BuildingTileType), MAX_BUILDING_SIZE>,
 }
 
 pub struct BuildingBuiltEvent {
@@ -147,73 +147,69 @@ pub fn demolish_building(
 #[derive(Component)]
 pub struct BuildGuide;
 
-// pub fn update_build_guide(
-//     mut commands: Commands,
-//     build_guides: Query<(&TilePos, &mut BuildGuide)>,
-//     tiles: Query<&TileTextureIndex>,
-//     selected_tool: Res<SelectedTool>,
-//     mouse_pos: Res<MapCursorPos>,
-//     build_events: EventReader<BuildRequestedEvent>,
-//     demolish_events: EventReader<DemolishEvent>,
-//     map_interaction: Res<MapInteraction>,
-//     buildings: Res<BuildingTemplates>,
+pub fn update_build_guide(
+    mut commands: Commands,
+    build_guides: Query<(Entity, &TilePos), With<BuildGuide>>,
+    tiles: Query<&TileTextureIndex>,
+    selected_tool: Res<SelectedTool>,
+    mouse_pos: Res<MapCursorPos>,
+    build_events: EventReader<BuildRequestedEvent>,
+    demolish_events: EventReader<DemolishEvent>,
+    map_interaction: Res<MapInteraction>,
+    buildings: Res<BuildingTemplates>,
+    mut guide_tiles: Query<&mut TileStorage, With<BuildGuideLayer>>,
+    guide_tilemap: Query<Entity, With<BuildGuideLayer>>,
+) {
+    if mouse_pos.is_changed()
+        || selected_tool.is_changed()
+        || !build_events.is_empty()
+        || !demolish_events.is_empty()
+    {
+        let Ok(mut guide_tiles) = guide_tiles.get_single_mut() else {
+            warn!("no building layer");
+            return;
+        };
 
-// ) {
+        // remove previous build guide
+        for (tile_entity, tile_pos) in build_guides.iter() {
+            commands.entity(tile_entity).despawn_recursive();
+            guide_tiles.checked_remove(tile_pos);
+        }
 
-//     if mouse_pos.is_changed()
-//         || selected_tool.is_changed()
-//         || !build_events.is_empty()
-//         || !demolish_events.is_empty()
-//     {
-//         for (tile_pos, _) in build_guides.iter() {
-//             let _ = map_query.despawn_tile(
-//                 &mut commands,
-//                 *tile_pos,
-//                 active_map.map_id,
-//                 MapLayer::BuildGuide,
-//             );
-//             map_query.notify_chunk_for_tile(*tile_pos, active_map.map_id, MapLayer::BuildGuide);
-//         }
+        if let SelectedTool::Building(building_type) = *selected_tool
+            && let Some(tile_pos) = mouse_pos.0
+            && map_interaction.is_allowed()
+        {
+            let template = buildings.templates[&building_type].with_origin(tile_pos);
 
-//         if let SelectedTool::Building(building_type) = *selected_tool
-//             && let Some(tile_pos) = mouse_pos.0
-//             && map_interaction.is_allowed()
-//         {
-//             let template = buildings.templates[&building_type].with_origin(tile_pos);
+            let is_belt_edit = || building_type == BuildingType::Belt && guide_tiles.checked_get(&tile_pos)
+                .and_then(|te| tiles.get(te).ok())
+                .map_or(false, |tile| BuildingTileType::from(*tile).is_belt());
 
-//             let is_belt_edit = |map_query: &mut MapQuery| building_type == BuildingType::Belt && map_query
-//                 .get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings)
-//                 .ok()
-//                 .and_then(|te| tiles.get(te).ok())
-//                 .map_or(false, |tile| BuildingTileType::from(tile.texture_index).is_belt());
+            let guide_color = match is_posible_to_build( &template.instructions, &guide_tiles) {
+                true => Color::rgba(0., 1., 0., 0.75),
+                false if is_belt_edit() => Color::rgba(1., 1., 0., 0.75),
+                false => Color::rgba(1., 0., 0., 0.75),
+            };
 
-//             let guide_color = match is_posible_to_build( &template.instructions, &mut map_query, &active_map) {
-//                 true => Color::rgba(0., 1., 0., 0.75),
-//                 false if is_belt_edit(&mut map_query) => Color::rgba(1., 1., 0., 0.75),
-//                 false => Color::rgba(1., 0., 0., 0.75),
-//             };
+            let guide_tilemap_entity = guide_tilemap.single();
 
-//             for (tile_pos, building_type) in template.instructions {
-//                 let tile = Tile {
-//                     texture_index: building_type as u16,
-//                     color: guide_color,
-//                     ..default()
-//                 };
-
-//                 if let Ok(entity) = map_query.set_tile(
-//                     &mut commands,
-//                     tile_pos,
-//                     tile,
-//                     active_map.map_id,
-//                     MapLayer::BuildGuide,
-//                 ) {
-//                     commands.entity(entity).insert(BuildGuide);
-//                     map_query.notify_chunk_for_tile(tile_pos, active_map.map_id, MapLayer::BuildGuide);
-//                 }
-//             }
-//         }
-//     }
-// }
+            commands.entity(guide_tilemap_entity).with_children(|parent| {
+                for (tile_pos, building_type) in template.instructions {
+                    let tile = parent.spawn(TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(guide_tilemap_entity),
+                        texture_index: building_type.into(),
+                        color: guide_color.into(),
+                        ..default()
+                    }).insert(BuildGuide).id();                
+    
+                    guide_tiles.checked_set(&tile_pos, tile);
+                }
+            });       
+        }
+    }
+}
 
 // pub fn highlight_demolition(
 //     mut commands: Commands,

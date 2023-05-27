@@ -23,6 +23,7 @@ impl Default for BuildingTemplates {
     }
 }
 
+#[derive(Debug)]
 pub struct BuildingTemplate {
     pub instructions: ArrayVec<(TilePos, BuildingTileType), MAX_BUILDING_SIZE>,
 }
