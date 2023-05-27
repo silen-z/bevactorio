@@ -6,191 +6,138 @@ use super::{
     is_posible_to_build, BuildRequestedEvent, Building, BuildingType, DemolishEvent, SelectedTool,
 };
 use crate::input::MapCursorPos;
-use crate::map::{BuildingTileType};
+use crate::map::{BuildingTileType, BuildGuideLayer};
 use crate::ui::MapInteraction;
 
 #[derive(Component)]
 pub struct BuildGuide;
 
-// pub fn show_build_tool(
-//     mut commands: Commands,
-//     build_guides: Query<(&TilePos, &TileParent), With<BuildGuide>>,
-//     tiles: Query<&Tile>,
-//     selected_tool: Res<SelectedTool>,
-//     mouse_pos: Res<MapCursorPos>,
-//     build_events: EventReader<BuildRequestedEvent>,
-//     demolish_events: EventReader<DemolishEvent>,
-//     map_interaction: Res<MapInteraction>,
-//     template_handles: Res<BuildingTemplates>,
-//     templates: Res<Assets<BuildingTemplate>>,
-// ) {
-//     if mouse_pos.is_changed()
-//         || selected_tool.is_changed()
-//         || !build_events.is_empty()
-//         || !demolish_events.is_empty()
-//     {
-//         for (tile_pos, tile_parent) in build_guides.iter() {
-//             let _ = map_query.despawn_tile(
-//                 &mut commands,
-//                 *tile_pos,
-//                 active_map.map_id,
-//                 tile_parent.layer_id,
-//             );
-//             map_query.notify_chunk_for_tile(*tile_pos, active_map.map_id, tile_parent.layer_id);
-//         }
+pub fn update_build_guide(
+    mut commands: Commands,
+    build_guides: Query<(Entity, &TilePos), With<BuildGuide>>,
+    tiles: Query<&TileTextureIndex>,
+    selected_tool: Res<SelectedTool>,
+    mouse_pos: Res<MapCursorPos>,
+    build_events: EventReader<BuildRequestedEvent>,
+    demolish_events: EventReader<DemolishEvent>,
+    map_interaction: Res<MapInteraction>,
+    buildings: Res<BuildingTemplates>,
+    templates: Res<Assets<BuildingTemplate>>,
+    mut guide_tiles: Query<&mut TileStorage, With<BuildGuideLayer>>,
+    guide_tilemap: Query<Entity, With<BuildGuideLayer>>,
+) {
+    if mouse_pos.is_changed()
+        || selected_tool.is_changed()
+        || !build_events.is_empty()
+        || !demolish_events.is_empty()
+    {
+        let Ok(mut guide_tiles) = guide_tiles.get_single_mut() else {
+            warn!("no building layer");
+            return;
+        };
 
-//         if !map_interaction.is_allowed() {
-//             return;
-//         }
+        // remove previous build guide
+        for (tile_entity, tile_pos) in build_guides.iter() {
+            commands.entity(tile_entity).despawn_recursive();
+            guide_tiles.checked_remove(tile_pos);
+        }
 
-//         if let SelectedTool::Build {
-//             building,
-//             direction,
-//         } = *selected_tool
-//         {
-//             if let Some(tile_pos) = mouse_pos.0 {
-//                 let template = template_handles.get(building);
+        if let SelectedTool::Build {building, direction } = *selected_tool
+            && let Some(tile_pos) = mouse_pos.0
+            && map_interaction.is_allowed()
+        {
+            let template_handle = buildings.get(building);
 
-//                 let template = templates.get(template).unwrap().place(tile_pos, direction);
+            let template = templates
+                .get(&template_handle)
+                .unwrap()
+                .place(tile_pos, direction);
 
-//                 let is_belt_edit = |map_query: &mut MapQuery| {
-//                     building == BuildingType::Belt
-//                         && map_query
-//                             .get_tile_entity(tile_pos, active_map.map_id, MapLayer::Buildings)
-//                             .ok()
-//                             .and_then(|te| tiles.get(te).ok())
-//                             .map_or(false, |tile| {
-//                                 BuildingTileType::from(tile.texture_index).is_belt()
-//                             })
-//                 };
+            let is_belt_edit = || building == BuildingType::Belt && guide_tiles.checked_get(&tile_pos)
+                .and_then(|te| tiles.get(te).ok())
+                .map_or(false, |tile| BuildingTileType::from(*tile).is_belt());
 
-//                 let guide_color = match is_posible_to_build(&template, &mut map_query, &active_map)
-//                 {
-//                     true => Color::rgba(0., 1., 0., 0.75),
-//                     false if is_belt_edit(&mut map_query) => Color::rgba(1., 1., 0., 0.75),
-//                     false => Color::rgba(1., 0., 0., 0.75),
-//                 };
+            let guide_color = match is_posible_to_build(&template, &guide_tiles) {
+                true => Color::rgba(0., 1., 0., 0.75),
+                false if is_belt_edit() => Color::rgba(1., 1., 0., 0.75),
+                false => Color::rgba(1., 0., 0., 0.75),
+            };
 
-//                 for (tile_pos, building_type) in template.instructions() {
-//                     let tile = Tile {
-//                         texture_index: building_type as u16,
-//                         color: guide_color,
-//                         ..default()
-//                     };
+            let guide_tilemap_entity = guide_tilemap.single();
 
-//                     if let Ok(entity) = map_query.set_tile(
-//                         &mut commands,
-//                         tile_pos,
-//                         tile,
-//                         active_map.map_id,
-//                         MapLayer::BuildGuide,
-//                     ) {
-//                         commands.entity(entity).insert(BuildGuide);
-//                         map_query.notify_chunk_for_tile(
-//                             tile_pos,
-//                             active_map.map_id,
-//                             MapLayer::BuildGuide,
-//                         );
-//                     }
-//                 }
+            commands.entity(guide_tilemap_entity).with_children(|parent| {
+                for (tile_pos, building_type) in template.instructions() {
+                    let tile = parent.spawn(TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(guide_tilemap_entity),
+                        texture_index: building_type.into(),
+                        color: guide_color.into(),
+                        ..default()
+                    }).insert(BuildGuide).id();                
+    
+                    guide_tiles.checked_set(&tile_pos, tile);
+                }
+            });       
+        }
+    }
+}
 
-//                 for (tile_pos, io_type) in template.io() {
-//                     info!("{:?} => {}", io_type, io_type as u16);
-//                     let tile = Tile {
-//                         texture_index: io_type as u16,
-//                         ..default()
-//                     };
+pub fn highlight_demolition(
+    mut commands: Commands,
+    mouse_pos: Res<MapCursorPos>,
+    buildings: Query<&Building>,
+    selected_tool: Res<SelectedTool>,
+    build_events: EventReader<BuildRequestedEvent>,
+    demolish_events: EventReader<DemolishEvent>,
+    map_interaction: Res<MapInteraction>,
+    mut building_tiles: Query<&mut TileColor>,
+    mut guide_tiles: Query<(Entity, &mut TileStorage), With<BuildGuideLayer>>,
+    mut highlighted_buildings: Local<Vec<Entity>>,
+) {
+    if mouse_pos.is_changed()
+        || selected_tool.is_changed()
+        || !build_events.is_empty()
+        || !demolish_events.is_empty()
+    {
+        let Ok((guide_entity, mut guide_tiles)) = guide_tiles.get_single_mut() else {
+            warn!("no building layer");
+            return;
+        };
 
-//                     if let Ok(entity) = map_query.set_tile(
-//                         &mut commands,
-//                         tile_pos,
-//                         tile,
-//                         active_map.map_id,
-//                         MapLayer::IoGuide,
-//                     ) {
-//                         commands.entity(entity).insert(BuildGuide);
-//                         map_query.notify_chunk_for_tile(
-//                             tile_pos,
-//                             active_map.map_id,
-//                             MapLayer::IoGuide,
-//                         );
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
+        // clear previously highlighted building tiles
+        for e in highlighted_buildings.drain(..) {
+            if let Ok(mut tile) = building_tiles.get_mut(e) {
+                *tile = default();
+            }
+        }
 
-// pub fn show_demo_tool(
-//     mut commands: Commands,
-//     mut map_query: MapQuery,
-//     mouse_pos: Res<MapCursorPos>,
-//     buildings: Query<&Building>,
-//     mut tiles: Query<&mut Tile>,
-//     active_map: Res<ActiveMap>,
-//     selected_tool: Res<SelectedTool>,
-//     build_events: EventReader<BuildRequestedEvent>,
-//     demolish_events: EventReader<DemolishEvent>,
-//     map_interaction: Res<MapInteraction>,
-//     mut highlighted_buildings: Local<Vec<(TilePos, Entity)>>,
-// ) {
-//     let should_update = mouse_pos.is_changed()
-//         || selected_tool.is_changed()
-//         || !build_events.is_empty()
-//         || !demolish_events.is_empty();
+        if let SelectedTool::Buldozer = *selected_tool
+            && let Some(tile_pos) = mouse_pos.0
+            && map_interaction.is_allowed()
+        {
+            commands.entity(guide_entity).with_children(|parent| {
+                let entity = parent.spawn(TileBundle {
+                    tilemap_id: TilemapId(parent.parent_entity()),
+                    texture_index: BuildingTileType::Explosion.into(),
+                    position: tile_pos,
+                    ..default()
+                }).insert(BuildGuide).id();
+                
+                guide_tiles.checked_set(&tile_pos, entity);
 
-//     if !should_update {
-//         return;
-//     }
+                let Some(building) = buildings.iter().find(|b| b.layout.contains(&tile_pos)) else {
+                    return;
+                };
 
-//     // clean previous guide
-//     for (pos, e) in highlighted_buildings.drain(..) {
-//         if let Ok(mut tile) = tiles.get_mut(e) {
-//             tile.color = default();
-//             map_query.notify_chunk_for_tile(pos, active_map.map_id, MapLayer::Buildings);
-//         }
-//     }
-
-//     match (selected_tool.as_ref(), mouse_pos.0) {
-//         (SelectedTool::Buldozer, Some(tile_pos)) if map_interaction.is_allowed() => {
-//             let tile = Tile {
-//                 texture_index: BuildingTileType::Explosion as u16,
-//                 ..default()
-//             };
-
-//             if let Ok(entity) = map_query.set_tile(
-//                 &mut commands,
-//                 tile_pos,
-//                 tile,
-//                 active_map.map_id,
-//                 MapLayer::BuildGuide,
-//             ) {
-//                 commands.entity(entity).insert(BuildGuide);
-//                 map_query.notify_chunk_for_tile(tile_pos, active_map.map_id, MapLayer::BuildGuide);
-//             }
-
-//             let demolished_building = buildings.iter().find_map(|b| {
-//                 b.layout
-//                     .tiles
-//                     .iter()
-//                     .any(|(_, pos, _)| *pos == tile_pos)
-//                     .then_some(b)
-//             });
-
-//             if let Some(building) = demolished_building {
-//                 for (e, pos, _) in building.layout.tiles.iter() {
-//                     if let Ok(mut tile) = tiles.get_mut(*e) {
-//                         highlighted_buildings.push((*pos, *e));
-//                         tile.color = Color::RED;
-//                         map_query.notify_chunk_for_tile(
-//                             *pos,
-//                             active_map.map_id,
-//                             MapLayer::Buildings,
-//                         );
-//                     }
-//                 }
-//             }
-//         }
-//         _ => {}
-//     }
-// }
+                // highlight tiles of a building about to be demolished
+                for (e, _ , _) in building.layout.tiles.iter() {
+                    if let Ok(mut tile) = building_tiles.get_mut(*e) {
+                        highlighted_buildings.push(*e);
+                        *tile = Color::RED.into();
+                    }
+                }
+    
+            });
+        }
+    }
+}

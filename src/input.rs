@@ -1,7 +1,8 @@
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::ButtonState;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
+use bevy::render::camera::RenderTarget;
+use bevy::window::{PrimaryWindow, WindowRef};
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::{BuildRequestedEvent, BuildingType, DemolishEvent, SelectedTool};
@@ -104,50 +105,42 @@ pub fn handle_keyboard_input(
     }
 }
 
-#[derive(Resource, Default, Deref, DerefMut)]
+#[derive(Resource, Default, Deref, DerefMut, Debug)]
 pub struct WorldCursorPos(pub Option<Vec2>);
 
 pub fn world_cursor_pos(
-    // need to get window dimensions
-    window: Query<&Window, With<PrimaryWindow>>,
-    // query to get camera transform
+    windows: Query<(Entity, &Window, Option<&PrimaryWindow>)>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut world_pos: ResMut<WorldCursorPos>,
 ) {
-    // get the camera info and transform
-    // assuming there is exactly one main camera entity, so query::single() is OK
     let (camera, camera_transform) = camera_query.single();
 
-    let Ok(wnd) = window.get_single() else {
+    let window = match camera.target {
+        RenderTarget::Window(WindowRef::Primary) => {
+            let Some((_,window,_)) = windows.iter().find(|(_,_,primary)| primary.is_some()) else {
+                return;
+            };
+            window
+        }
+        RenderTarget::Window(WindowRef::Entity(e)) => {
+            let Some((_,window,_)) = windows.iter().find(|(entity,_,_)| *entity == e) else {
+                return;
+            };
+            window
+        }
+        _ => return,
+    };
+
+    let Some(screen_pos) = window.cursor_position() else {
         return;
     };
-    // TODO figure out windowId and handle getting the correct window
-    // get the window that the camera is displaying to (or the primary window)
-    //
-    // let wnd = match camera.target {
-    //     RenderTarget::Window(id) => wnds.get(id).unwrap(),
-    //     _ => wi.get_primary().unwrap(),
-    // };
 
-    world_pos.0 = wnd.cursor_position().map(|screen_pos| {
-        // get the size of the window
-        let window_size = Vec2::new(wnd.width() as f32, wnd.height() as f32);
-
-        // convert screen position [0..resolution] to ndc [-1..1] (gpu coordinates)
-        let ndc = (screen_pos / window_size) * 2.0 - Vec2::ONE;
-
-        // matrix for undoing the projection and camera transform
-        let ndc_to_world = camera_transform.compute_matrix() * camera.projection_matrix().inverse();
-
-        // use it to convert ndc to world-space coordinates
-        let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
-
-        // reduce it to a 2D value
-        world_pos.truncate()
-    });
+    if let Some(ray) = camera.viewport_to_world(camera_transform, screen_pos) {
+        world_pos.0 = Some(ray.origin.truncate());
+    }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 pub struct MapCursorPos(pub Option<TilePos>);
 
 pub fn map_cursor_pos(
@@ -155,16 +148,15 @@ pub fn map_cursor_pos(
     world_pos: Res<WorldCursorPos>,
     grid_layer_query: Query<(&TilemapSize, &TilemapTileSize, &Transform), With<GridLayer>>,
 ) {
+    let Some(world_pos) = world_pos.0 else {
+        return;
+    };
+
     let (map_size, tile_size, map_transform) = grid_layer_query.single();
 
-    let tile_pos = world_pos.and_then(|wp| to_tile_pos(wp, tile_size, map_size, map_transform));
+    let tile_pos = to_tile_pos(world_pos, tile_size, map_size, map_transform);
 
-    match (map_pos.0, tile_pos) {
-        (Some(TilePos { x: mx, y: my }), Some(TilePos { x: tx, y: ty }))
-            if mx != tx || my != ty =>
-        {
-            map_pos.0 = tile_pos;
-        }
-        _ => {}
+    if tile_pos != map_pos.0 {
+        map_pos.0 = tile_pos;
     }
 }

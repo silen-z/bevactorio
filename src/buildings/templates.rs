@@ -14,6 +14,7 @@ type Instructions<T> = ArrayVec<(TilePos, T), MAX_BUILDING_SIZE>;
 
 #[derive(TypeUuid)]
 #[uuid = "a5bf35d0-f823-4a41-8e54-dd1bd4ed0acd"]
+#[derive(Debug)]
 pub struct BuildingTemplate {
     pub building_type: BuildingType,
     pub instructions: Directional<Instructions<BuildingTileType>>,

@@ -1,4 +1,3 @@
-use std::num::ParseIntError;
 use std::ops::Not;
 
 use bevy::prelude::*;
@@ -12,6 +11,9 @@ pub struct TerrainLayer;
 
 #[derive(Component)]
 pub struct BuildingLayer;
+
+#[derive(Component)]
+pub struct BuildGuideLayer;
 
 #[derive(Component)]
 pub struct GridLayer;
@@ -110,6 +112,12 @@ pub enum IoTileType {
     Unknown = u32::MAX,
 }
 
+impl From<BuildingTileType> for TileTextureIndex {
+    fn from(value: BuildingTileType) -> Self {
+        TileTextureIndex(value as u32)
+    }
+}
+
 pub fn to_tile_pos(
     world_pos: Vec2,
     tile_size: &TilemapTileSize,
@@ -134,7 +142,7 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Terrain layer
 
     let mut terrain_storage = TileStorage::empty(tilemap_size);
-    let terrain_tilemap = commands.spawn_empty().insert(TerrainLayer).id();
+    let terrain_tilemap = commands.spawn(TerrainLayer).id();
 
     bevy_ecs_tilemap::helpers::filling::fill_tilemap(
         TileTextureIndex(0),
@@ -167,7 +175,7 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
             grid_size,
             size: tilemap_size,
             storage: TileStorage::empty(tilemap_size),
-            texture: TilemapTexture::Single(buildings_texture),
+            texture: TilemapTexture::Single(buildings_texture.clone()),
             tile_size,
             transform: bevy_ecs_tilemap::helpers::geometry::get_tilemap_center_transform(
                 &tilemap_size,
@@ -178,6 +186,25 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .insert(BuildingLayer);
+
+    // Build guide layer
+
+    commands
+        .spawn(TilemapBundle {
+            grid_size,
+            size: tilemap_size,
+            storage: TileStorage::empty(tilemap_size),
+            texture: TilemapTexture::Single(buildings_texture),
+            tile_size,
+            transform: bevy_ecs_tilemap::helpers::geometry::get_tilemap_center_transform(
+                &tilemap_size,
+                &grid_size,
+                &TilemapType::Square,
+                2.0,
+            ),
+            ..default()
+        })
+        .insert(BuildGuideLayer);
 
     // Grid layer
 
@@ -202,7 +229,7 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
             &tilemap_size,
             &grid_size,
             &TilemapType::Square,
-            2.0,
+            3.0,
         ),
         ..default()
     });
@@ -249,46 +276,40 @@ impl From<Grid> for bool {
     fn from(value: Grid) -> Self {
         match value {
             Grid::Enabled => true,
-            Grid::Disabled => false
+            Grid::Disabled => false,
         }
     }
 }
- 
+
 impl Grid {
     pub fn toggle(&mut self) {
         *self = !*self;
     }
 }
 
-// pub fn clear_buildings(
-//     mut commands: Commands,
-//     mut map_events: EventReader<MapEvent>,
-//     mut map_query: MapQuery,
-//     buildings: Query<Entity, With<Building>>,
-//     active_map: Res<ActiveMap>,
-// ) {
-//     if map_events
-//         .iter()
-//         .any(|e| matches!(e, MapEvent::ClearBuildings))
-//     {
-//         for building_entity in buildings.iter() {
-//             commands.entity(building_entity).despawn();
-//         }
+pub fn clear_buildings(
+    mut commands: Commands,
+    mut map_events: EventReader<MapEvent>,
+    buildings: Query<(Entity, &Building)>,
+    mut building_tilemap: Query<&mut TileStorage, With<BuildingLayer>>,
+) {
+    if map_events
+        .iter()
+        .any(|e| matches!(e, MapEvent::ClearBuildings))
+    {
+        let Ok(mut building_tilemap) = building_tilemap.get_single_mut() else {
+            return;
+        };
 
-//         map_query.despawn_layer_tiles(&mut commands, active_map.map_id, MapLayer::Buildings);
+        for (building_entity, building) in buildings.iter() {
+            for (_, tile_pos, _) in &building.layout.tiles {
+                let _ = building_tilemap.checked_remove(tile_pos);
+            }
 
-//         if let Some((_, layer)) = map_query.get_layer(active_map.map_id, MapLayer::Buildings) {
-//             let chunks = (0..layer.settings.map_size.0)
-//                 .flat_map(|x| (0..layer.settings.map_size.1).map(move |y| (x, y)))
-//                 .flat_map(|(x, y)| layer.get_chunk(ChunkPos(x, y)))
-//                 .collect::<Vec<_>>();
-
-//             for chunk in chunks {
-//                 map_query.notify_chunk(chunk);
-//             }
-//         }
-//     }
-// }
+            commands.entity(building_entity).despawn();
+        }
+    }
+}
 
 const MAX_GRID_ZOOM: f32 = 2.;
 
