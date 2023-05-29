@@ -1,25 +1,31 @@
 use bevy::input::keyboard::KeyboardInput;
-use bevy::input::ElementState;
+use bevy::input::ButtonState;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
+use bevy::window::{PrimaryWindow, WindowRef};
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::buildings::{BuildRequestedEvent, BuildingType, DemolishEvent, SelectedTool};
 use crate::camera::MainCamera;
-use crate::map::{ActiveMap, MapEvent};
+use crate::grid::GridLayer;
+use crate::map::{to_tile_pos, MapEvent};
 use crate::ui::MapInteraction;
 
 pub fn handle_mouse_input(
     mouse: Res<Input<MouseButton>>,
-    map_pos: Res<WorldCursorPos>,
+    cursor_pos: Res<WorldCursorPos>,
     mut build_events: EventWriter<BuildRequestedEvent>,
     mut demolish_events: EventWriter<DemolishEvent>,
     map_interaction: Res<MapInteraction>,
     selected_building: Res<SelectedTool>,
-    active_map: Res<ActiveMap>,
+    grid_layer_query: Query<(&TilemapSize, &TilemapTileSize, &Transform), With<GridLayer>>,
 ) {
-    if let Some(tile_pos) = map_pos.and_then(|cursor_pos| active_map.to_tile_pos(cursor_pos)) {
-        if mouse.just_pressed(MouseButton::Left) && map_interaction.is_allowed() {
+    let (map_size, tile_size, map_transform) = grid_layer_query.single();
+
+    if let Some(tile_pos) =
+        cursor_pos.and_then(|cp| to_tile_pos(cp, tile_size, map_size, map_transform))
+    {
+        if mouse.pressed(MouseButton::Left) && map_interaction.is_allowed() {
             match *selected_building {
                 SelectedTool::Build {
                     building,
@@ -50,19 +56,19 @@ pub fn handle_keyboard_input(
     for event in key_events.iter() {
         match event {
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::G),
                 ..
             } => map_events.send(MapEvent::ToggleGrid),
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::C),
                 ..
             } => map_events.send(MapEvent::ClearBuildings),
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::M),
                 ..
             } => {
@@ -73,7 +79,7 @@ pub fn handle_keyboard_input(
             }
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::B),
                 ..
             } => {
@@ -84,13 +90,13 @@ pub fn handle_keyboard_input(
             }
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::D),
                 ..
             } => *selected_tool = SelectedTool::Buldozer,
 
             KeyboardInput {
-                state: ElementState::Pressed,
+                state: ButtonState::Pressed,
                 key_code: Some(KeyCode::R),
                 ..
             } => selected_tool.rotate(),
@@ -100,55 +106,58 @@ pub fn handle_keyboard_input(
     }
 }
 
-#[derive(Default, Deref, DerefMut)]
+#[derive(Resource, Default, Deref, DerefMut, Debug)]
 pub struct WorldCursorPos(pub Option<Vec2>);
 
 pub fn world_cursor_pos(
-    // need to get window dimensions
-    wnds: Res<Windows>,
-    // query to get camera transform
+    windows: Query<(Entity, &Window, Option<&PrimaryWindow>)>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut world_pos: ResMut<WorldCursorPos>,
 ) {
-    // get the camera info and transform
-    // assuming there is exactly one main camera entity, so query::single() is OK
     let (camera, camera_transform) = camera_query.single();
 
-    // get the window that the camera is displaying to (or the primary window)
-    let wnd = match camera.target {
-        RenderTarget::Window(id) => wnds.get(id).unwrap(),
-        _ => wnds.get_primary().unwrap(),
+    let window = match camera.target {
+        RenderTarget::Window(WindowRef::Primary) => {
+            let Some((_,window,_)) = windows.iter().find(|(_,_,primary)| primary.is_some()) else {
+                return;
+            };
+            window
+        }
+        RenderTarget::Window(WindowRef::Entity(e)) => {
+            let Some((_,window,_)) = windows.iter().find(|(entity,_,_)| *entity == e) else {
+                return;
+            };
+            window
+        }
+        _ => return,
     };
 
-    world_pos.0 = wnd.cursor_position().map(|screen_pos| {
-        // get the size of the window
-        let window_size = Vec2::new(wnd.width() as f32, wnd.height() as f32);
+    let Some(screen_pos) = window.cursor_position() else {
+        return;
+    };
 
-        // convert screen position [0..resolution] to ndc [-1..1] (gpu coordinates)
-        let ndc = (screen_pos / window_size) * 2.0 - Vec2::ONE;
-
-        // matrix for undoing the projection and camera transform
-        let ndc_to_world = camera_transform.compute_matrix() * camera.projection_matrix.inverse();
-
-        // use it to convert ndc to world-space coordinates
-        let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
-
-        // reduce it to a 2D value
-        world_pos.truncate()
-    });
+    if let Some(ray) = camera.viewport_to_world(camera_transform, screen_pos) {
+        world_pos.0 = Some(ray.origin.truncate());
+    }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default, Debug)]
 pub struct MapCursorPos(pub Option<TilePos>);
 
 pub fn map_cursor_pos(
     mut map_pos: ResMut<MapCursorPos>,
     world_pos: Res<WorldCursorPos>,
-    active_map: Res<ActiveMap>,
+    grid_layer_query: Query<(&TilemapSize, &TilemapTileSize, &Transform), With<GridLayer>>,
 ) {
-    let tile_pos = world_pos.and_then(|wp| active_map.to_tile_pos(wp));
+    let Some(world_pos) = world_pos.0 else {
+        return;
+    };
 
-    if map_pos.0 != tile_pos {
+    let (map_size, tile_size, map_transform) = grid_layer_query.single();
+
+    let tile_pos = to_tile_pos(world_pos, tile_size, map_size, map_transform);
+
+    if tile_pos != map_pos.0 {
         map_pos.0 = tile_pos;
     }
 }

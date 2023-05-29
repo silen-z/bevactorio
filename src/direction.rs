@@ -35,6 +35,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Directional<T> {
     pub up: T,
     pub down: T,

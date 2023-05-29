@@ -14,6 +14,7 @@ type Instructions<T> = ArrayVec<(TilePos, T), MAX_BUILDING_SIZE>;
 
 #[derive(TypeUuid)]
 #[uuid = "a5bf35d0-f823-4a41-8e54-dd1bd4ed0acd"]
+#[derive(Debug)]
 pub struct BuildingTemplate {
     pub building_type: BuildingType,
     pub instructions: Directional<Instructions<BuildingTileType>>,
@@ -51,7 +52,7 @@ impl BuildingTemplate {
     }
 }
 
-fn get_layer<T: From<u16>>(
+fn get_layer<T: From<u32>>(
     map: &tiled::Map,
     layer_name: &str,
     direction: MapDirection,
@@ -73,7 +74,7 @@ fn get_layer<T: From<u16>>(
     }
 }
 
-fn instructions_from_layer<T: From<u16>>(layer: tiled::TileLayer) -> Option<Instructions<T>> {
+fn instructions_from_layer<T: From<u32>>(layer: tiled::TileLayer) -> Option<Instructions<T>> {
     let width = layer.width().unwrap();
     let height = layer.height().unwrap();
 
@@ -82,9 +83,8 @@ fn instructions_from_layer<T: From<u16>>(layer: tiled::TileLayer) -> Option<Inst
     for x in 0..width {
         for y in 0..height {
             if let Some(tile) = layer.get_tile(x as i32, y as i32) {
-                let tile_pos = TilePos(x, height - 1 - y);
-                let tile = tile.id() as u16;
-                instructions.push((tile_pos, tile.into()));
+                let tile_pos = TilePos::new(x, height - 1 - y);
+                instructions.push((tile_pos, tile.id().into()));
             }
         }
     }
@@ -103,7 +103,7 @@ impl PlacedBuildingTemplate<'_> {
         self.template.instructions[self.direction]
             .iter()
             .map(|(tile_pos, tile_type)| {
-                let pos = TilePos(self.origin.0 + tile_pos.0, self.origin.1 + tile_pos.1);
+                let pos = TilePos::new(self.origin.x + tile_pos.x, self.origin.y + tile_pos.y);
                 (pos, *tile_type)
             })
     }   
@@ -112,13 +112,13 @@ impl PlacedBuildingTemplate<'_> {
         self.template.io[self.direction]
             .iter()
             .map(|(tile_pos, tile_type)| {
-                let pos = TilePos(self.origin.0 + tile_pos.0, self.origin.1 + tile_pos.1);
+                let pos = TilePos::new(self.origin.x + tile_pos.x, self.origin.y + tile_pos.y);
                 (pos, *tile_type)
             })
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct BuildingTemplates {
     templates: PreHashMap<BuildingType, Handle<BuildingTemplate>>,
     loading_handles: Vec<HandleUntyped>,
@@ -189,7 +189,7 @@ pub fn register_building_templates(
                 if let Some(index) = building_templates
                     .loading_handles
                     .iter()
-                    .position(|h| h.id == handle.id)
+                    .position(|h| h.id() == handle.id())
                 {
                     let template = templates.get(handle).unwrap();
                     let handle = building_templates.loading_handles.swap_remove(index);
