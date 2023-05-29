@@ -15,19 +15,22 @@ pub struct Mine {
 
 pub fn build_mine(mut commands: Commands, mut new_buildings: EventReader<BuildingBuiltEvent>) {
     for event in new_buildings.iter() {
-        if let BuildingType::Mine = event.building_type {
-            let (_, output, _) = event
-                .layout
-                .tiles
-                .iter()
-                .find(|(_, _, tile_type)| matches!(tile_type, BuildingTileType::MineBottomLeft))
-                .unwrap();
 
-            commands.entity(event.entity).insert(Mine {
-                timer: Timer::new(Duration::from_secs(1), TimerMode::Repeating),
-                output: *output,
-            });
-        }
+        let BuildingType::Mine = event.building_type else {
+            continue;
+        };
+
+        let (_, output, _) = event
+            .layout
+            .tiles
+            .iter()
+            .find(|(_, _, tile_type)| matches!(tile_type, BuildingTileType::MineBottomLeft))
+            .unwrap();
+
+        commands.entity(event.entity).insert(Mine {
+            timer: Timer::new(Duration::from_secs(1), TimerMode::Repeating),
+            output: *output,
+        });
     }
 }
 

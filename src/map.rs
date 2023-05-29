@@ -105,11 +105,14 @@ pub fn to_tile_pos(
     map_size: &TilemapSize,
     map_transform: &Transform,
 ) -> Option<TilePos> {
-    let x = (world_pos.x - map_transform.translation.x) / tile_size.x;
-    let y = (world_pos.y - map_transform.translation.y) / tile_size.y;
+    let x = (world_pos.x - map_transform.translation.x + (tile_size.x * 0.5)) / tile_size.x;
+    let y = (world_pos.y - map_transform.translation.y + (tile_size.y * 0.5)) / tile_size.y;
 
-    (x > 0. && y > 0. && x < map_size.x as f32 && y < map_size.y as f32)
-        .then_some(TilePos::new(x as u32, y as u32))
+    if x < 0. && y < 0. && x > map_size.x as f32 && y > map_size.y as f32 {
+        return None;
+    }
+
+    Some(TilePos::new(x as u32, y as u32))
 }
 
 pub const TILE_SIZE: TilemapTileSize = TilemapTileSize { x: 16., y: 16. };
@@ -172,7 +175,7 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(TilemapBundle {
-            grid_size:GRID_SIZE,
+            grid_size: GRID_SIZE,
             size: TILEMAP_SIZE,
             storage: TileStorage::empty(TILEMAP_SIZE),
             texture: TilemapTexture::Single(buildings_texture),
