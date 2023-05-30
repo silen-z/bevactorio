@@ -2,7 +2,7 @@ use arrayvec::ArrayVec;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use self::templates::{BuildingTemplate, BuildingTemplates, PlacedBuildingTemplate};
+use self::templates::{BuildingTemplate, BuildingRegistry, PlacedBuildingTemplate};
 use crate::direction::MapDirection;
 use crate::map::{BuildingLayer, BuildingTileType};
 
@@ -91,7 +91,7 @@ struct BuildingBundle {
 pub fn build_building(
     mut commands: Commands,
     mut request_events: EventReader<BuildRequestedEvent>,
-    template_handles: Res<BuildingTemplates>,
+    template_handles: Res<BuildingRegistry>,
     templates: Res<Assets<BuildingTemplate>>,
     mut building_layer: Query<&mut TileStorage, With<BuildingLayer>>,
 ) {

@@ -2,9 +2,8 @@ use arrayvec::ArrayVec;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::buildings::BuildingType;
+use crate::buildings::{BuildingType, BuildRequestedEvent};
 use crate::map::{BuildingLayer, BuildingTileType};
-use crate::BuildRequestedEvent;
 
 const BELT_CAPACITY: usize = 3;
 

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
-use super::templates::{BuildingTemplate, BuildingTemplates};
+use super::templates::{BuildingTemplate, BuildingRegistry};
 use super::{
     is_posible_to_build, BuildRequestedEvent, Building, BuildingType, DemolishEvent, Tool, BuildTool,
 };
@@ -19,7 +19,7 @@ pub fn update_build_guide(
     selected_tool: Res<Tool>,
     mouse_pos: Res<GameCursor>,
     map_interaction: Res<MapInteraction>,
-    buildings: Res<BuildingTemplates>,
+    buildings: Res<BuildingRegistry>,
     templates: Res<Assets<BuildingTemplate>>,
     mut guide_tiles: Query<&mut TileStorage, With<BuildGuideLayer>>,
     guide_tilemap: Query<Entity, With<BuildGuideLayer>>,

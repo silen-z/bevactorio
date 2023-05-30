@@ -119,12 +119,12 @@ impl PlacedBuildingTemplate<'_> {
 }
 
 #[derive(Resource, Default)]
-pub struct BuildingTemplates {
+pub struct BuildingRegistry {
     templates: PreHashMap<BuildingType, Handle<BuildingTemplate>>,
     loading_handles: Vec<HandleUntyped>,
 }
 
-impl BuildingTemplates {
+impl BuildingRegistry {
     fn register(&mut self, building_type: BuildingType, template: Handle<BuildingTemplate>) {
         self.templates.insert(Hashed::new(building_type), template);
     }
@@ -168,7 +168,7 @@ impl bevy::asset::AssetLoader for BuildingTemplateLoader {
     }
 }
 
-pub fn load_building_templates(assets: Res<AssetServer>, mut templates: ResMut<BuildingTemplates>) {
+pub fn load_building_templates(assets: Res<AssetServer>, mut templates: ResMut<BuildingRegistry>) {
     match assets.load_folder("buildings") {
         Ok(handles) => {
             templates.loading_handles.extend(handles);
@@ -180,7 +180,7 @@ pub fn load_building_templates(assets: Res<AssetServer>, mut templates: ResMut<B
 pub fn register_building_templates(
     templates: Res<Assets<BuildingTemplate>>,
     mut asset_events: EventReader<AssetEvent<BuildingTemplate>>,
-    mut building_templates: ResMut<BuildingTemplates>,
+    mut building_templates: ResMut<BuildingRegistry>,
     mut buildings: Query<&mut Handle<BuildingTemplate>>,
 ) {
     for event in asset_events.iter() {
