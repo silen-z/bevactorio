@@ -11,6 +11,18 @@ impl SelectToolAction {
     }
 }
 
+pub struct UiPlugin;
+
+impl Plugin for UiPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<MapInteraction>()
+            .add_startup_system(init_ui)
+            .add_system(handle_select_tool)
+            .add_system(highlight_selected_tool)
+            .add_system(track_ui_interaction);
+    }
+}
+
 pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut building_menu = commands.spawn(NodeBundle {
         background_color: Color::NONE.into(),
