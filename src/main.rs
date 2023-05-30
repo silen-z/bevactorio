@@ -3,10 +3,11 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::TilemapPlugin;
+use buildings::guide::should_update_build_guide;
 
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
-use crate::buildings::guide::{highlight_demolition, update_build_guide};
+use crate::buildings::guide::{update_build_guide, update_demo_guide};
 use crate::buildings::mine::{build_mine, mine_produce};
 use crate::buildings::templates::{
     load_building_templates, register_building_templates, BuildingTemplate, BuildingTemplateLoader,
@@ -63,13 +64,15 @@ fn main() {
 
     let build_mode = (
         construct_building,
-        update_build_guide,
         clear_buildings.run_if(should_clear_buildings),
-        highlight_demolition.after(update_build_guide),
         build_building.run_if(on_event::<BuildRequestedEvent>()),
         build_mine.after(build_building),
         build_chest,
     );
+
+    let build_guide_systems = (update_build_guide, update_demo_guide)
+        .chain()
+        .distributive_run_if(should_update_build_guide);
 
     App::new()
         .add_plugins(
@@ -99,6 +102,7 @@ fn main() {
         .add_startup_system(init_map)
         .add_systems(in_game_systems)
         .add_systems(build_mode.in_set(OnUpdate(AppState::BuildMode)))
+        .add_systems(build_guide_systems.in_set(OnUpdate(AppState::BuildMode)))
         .run();
 }
 
