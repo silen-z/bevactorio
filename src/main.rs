@@ -3,12 +3,11 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
-use buildings::guide::{highlight_demolition, update_build_guide};
-use grid::Grid;
 use map::{clear_buildings, init_map, should_clear_buildings};
 
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
+use crate::buildings::guide::{highlight_demolition, update_build_guide};
 use crate::buildings::mine::{build_mine, mine_produce};
 use crate::buildings::templates::{
     load_building_templates, register_building_templates, BuildingTemplate, BuildingTemplateLoader,
@@ -19,7 +18,6 @@ use crate::buildings::{
     SelectedTool,
 };
 use crate::camera::{camera_movement, MainCamera, Zoom};
-use crate::grid::{create_grid_layer, toggle_grid};
 use crate::input::{
     handle_keyboard_input, handle_mouse_input, map_cursor_pos, world_cursor_pos, MapCursorPos,
     WorldCursorPos,
@@ -64,7 +62,6 @@ fn main() {
         handle_mouse_input,
         handle_keyboard_input,
         camera_movement,
-        toggle_grid.after(handle_keyboard_input),
         build_belt.after(handle_mouse_input),
         demolish_building.after(handle_mouse_input),
         mine_produce.before(move_items_on_belts),
@@ -93,6 +90,7 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(TilemapPlugin)
         .add_plugin(UiPlugin)
+        .add_plugin(GilrsPlugin)
         .add_state::<AppState>()
         .add_asset::<BuildingTemplate>()
         .add_asset_loader(BuildingTemplateLoader)
@@ -100,7 +98,6 @@ fn main() {
         .init_resource::<BuildingTemplates>()
         .init_resource::<WorldCursorPos>()
         .init_resource::<MapCursorPos>()
-        .init_resource::<Grid>()
         .init_resource::<Zoom>()
         .add_event::<BuildRequestedEvent>()
         .add_event::<DemolishEvent>()
@@ -109,7 +106,6 @@ fn main() {
         .add_startup_system(load_building_templates)
         .add_system(register_building_templates)
         .add_startup_system(init_map)
-        .add_startup_system(create_grid_layer)
         .add_systems(in_game_systems)
         .add_systems(build_mode.in_set(OnUpdate(AppState::BuildMode)))
         .run();

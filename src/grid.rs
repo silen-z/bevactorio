@@ -1,13 +1,21 @@
-use std::ops::Not;
 
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::filling::fill_tilemap;
 use bevy_ecs_tilemap::prelude::*;
 
-use crate::{map::{TILEMAP_SIZE, TILE_SIZE, GRID_SIZE, MapEvent}, camera::Zoom};
+use crate::camera::Zoom;
+use crate::input::handle_keyboard_input;
+use crate::map::{MapEvent, GRID_SIZE, TILEMAP_SIZE, TILE_SIZE};
 
-#[derive(Component)]
-pub struct GridLayer;
+struct GridPlugin;
+
+impl Plugin for GridPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Grid>()
+            .add_startup_system(create_grid_layer)
+            .add_system(toggle_grid.after(handle_keyboard_input));
+    }
+}
 
 #[derive(Resource, Default, Clone, Copy)]
 pub enum Grid {
@@ -16,7 +24,7 @@ pub enum Grid {
     Disabled,
 }
 
-impl Not for Grid {
+impl std::ops::Not for Grid {
     type Output = Self;
 
     fn not(self) -> Self::Output {
@@ -50,6 +58,9 @@ impl Grid {
         *self = !*self;
     }
 }
+
+#[derive(Component)]
+pub struct GridLayer;
 
 const MAX_GRID_ZOOM: f32 = 2.;
 
