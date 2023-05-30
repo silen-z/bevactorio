@@ -2,8 +2,7 @@
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
-use map::{clear_buildings, init_map, should_clear_buildings};
+use bevy_ecs_tilemap::TilemapPlugin;
 
 use crate::belts::{build_belt, input_from_belts, move_items_on_belts};
 use crate::buildings::chest::build_chest;
@@ -14,15 +13,12 @@ use crate::buildings::templates::{
     BuildingTemplates,
 };
 use crate::buildings::{
-    build_building, construct_building, demolish_building, BuildRequestedEvent, DemolishEvent,
-    SelectedTool,
+    build_building, construct_building, demolish_building, BuildRequestedEvent, DemolishEvent, Tool,
 };
 use crate::camera::{camera_movement, MainCamera, Zoom};
-use crate::input::{
-    handle_keyboard_input, handle_mouse_input, map_cursor_pos, world_cursor_pos, MapCursorPos,
-    WorldCursorPos,
-};
-use crate::map::MapEvent;
+use crate::grid::GridPlugin;
+use crate::input::{handle_mouse_input, InputPlugin};
+use crate::map::{clear_buildings, init_map, should_clear_buildings, MapEvent};
 use crate::ui::UiPlugin;
 
 mod belts;
@@ -57,10 +53,6 @@ fn main() {
     };
 
     let in_game_systems = (
-        world_cursor_pos,
-        map_cursor_pos,
-        handle_mouse_input,
-        handle_keyboard_input,
         camera_movement,
         build_belt.after(handle_mouse_input),
         demolish_building.after(handle_mouse_input),
@@ -90,14 +82,13 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(TilemapPlugin)
         .add_plugin(UiPlugin)
-        .add_plugin(GilrsPlugin)
+        .add_plugin(InputPlugin)
+        .add_plugin(GridPlugin)
         .add_state::<AppState>()
         .add_asset::<BuildingTemplate>()
         .add_asset_loader(BuildingTemplateLoader)
-        .init_resource::<SelectedTool>()
+        .init_resource::<Tool>()
         .init_resource::<BuildingTemplates>()
-        .init_resource::<WorldCursorPos>()
-        .init_resource::<MapCursorPos>()
         .init_resource::<Zoom>()
         .add_event::<BuildRequestedEvent>()
         .add_event::<DemolishEvent>()

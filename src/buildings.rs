@@ -35,20 +35,33 @@ pub struct BuildingTile {
 }
 
 #[derive(Resource, Default, Clone, PartialEq, Eq)]
-pub enum SelectedTool {
+pub enum Tool {
     #[default]
     None,
-    Build {
-        building: BuildingType,
-        direction: MapDirection,
-    },
+    Build(BuildTool),
     Buldozer,
 }
 
-impl SelectedTool {
+#[derive(Clone, PartialEq, Eq)]
+pub struct BuildTool {
+    pub building: BuildingType,
+    pub direction: MapDirection,
+}
+
+impl BuildTool {
+    pub fn request_at(&self, tile_pos: TilePos) -> BuildRequestedEvent {
+        BuildRequestedEvent {
+            building_type: self.building,
+            direction: self.direction,
+            tile_pos,
+        }
+    }
+}
+
+impl Tool {
     pub fn rotate(&mut self) {
         match self {
-            SelectedTool::Build { direction, .. } => direction.turn_left(),
+            Tool::Build(BuildTool { direction, .. }) => direction.turn_left(),
             _ => {}
         }
     }

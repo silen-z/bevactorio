@@ -7,7 +7,7 @@ use crate::camera::Zoom;
 use crate::input::handle_keyboard_input;
 use crate::map::{MapEvent, GRID_SIZE, TILEMAP_SIZE, TILE_SIZE};
 
-struct GridPlugin;
+pub struct GridPlugin;
 
 impl Plugin for GridPlugin {
     fn build(&self, app: &mut App) {

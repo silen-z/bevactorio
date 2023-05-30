@@ -3,9 +3,9 @@ use bevy_ecs_tilemap::prelude::*;
 
 use super::templates::{BuildingTemplate, BuildingTemplates};
 use super::{
-    is_posible_to_build, BuildRequestedEvent, Building, BuildingType, DemolishEvent, SelectedTool,
+    is_posible_to_build, BuildRequestedEvent, Building, BuildingType, DemolishEvent, Tool, BuildTool,
 };
-use crate::input::MapCursorPos;
+use crate::input::GameCursor;
 use crate::map::{BuildingTileType, BuildGuideLayer};
 use crate::ui::MapInteraction;
 
@@ -16,8 +16,8 @@ pub fn update_build_guide(
     mut commands: Commands,
     build_guides: Query<(Entity, &TilePos), With<BuildGuide>>,
     tiles: Query<&TileTextureIndex>,
-    selected_tool: Res<SelectedTool>,
-    mouse_pos: Res<MapCursorPos>,
+    selected_tool: Res<Tool>,
+    mouse_pos: Res<GameCursor>,
     build_events: EventReader<BuildRequestedEvent>,
     demolish_events: EventReader<DemolishEvent>,
     map_interaction: Res<MapInteraction>,
@@ -42,8 +42,8 @@ pub fn update_build_guide(
             guide_tiles.checked_remove(tile_pos);
         }
 
-        if let SelectedTool::Build {building, direction } = *selected_tool
-            && let Some(tile_pos) = mouse_pos.0
+        if let Tool::Build(BuildTool {building, direction }) = *selected_tool
+            && let Some(tile_pos) = mouse_pos.tile_pos
             && map_interaction.is_allowed()
         {
             let template_handle = buildings.get(building);
@@ -84,9 +84,9 @@ pub fn update_build_guide(
 
 pub fn highlight_demolition(
     mut commands: Commands,
-    mouse_pos: Res<MapCursorPos>,
+    mouse_pos: Res<GameCursor>,
     buildings: Query<&Building>,
-    selected_tool: Res<SelectedTool>,
+    selected_tool: Res<Tool>,
     build_events: EventReader<BuildRequestedEvent>,
     demolish_events: EventReader<DemolishEvent>,
     map_interaction: Res<MapInteraction>,
@@ -111,8 +111,8 @@ pub fn highlight_demolition(
             }
         }
 
-        if let SelectedTool::Buldozer = *selected_tool
-            && let Some(tile_pos) = mouse_pos.0
+        if let Tool::Buldozer = *selected_tool
+            && let Some(tile_pos) = mouse_pos.tile_pos
             && map_interaction.is_allowed()
         {
             commands.entity(guide_entity).with_children(|parent| {

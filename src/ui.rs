@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
-use crate::buildings::{BuildingType, SelectedTool};
+use crate::buildings::{BuildTool, BuildingType, Tool};
 
 #[derive(Component, Clone)]
-pub struct SelectToolAction(SelectedTool, fn(&SelectedTool, &SelectedTool) -> bool);
+pub struct SelectToolAction(Tool, fn(&Tool, &Tool) -> bool);
 
 impl SelectToolAction {
-    fn is_same(&self, other: &SelectedTool) -> bool {
+    fn is_same(&self, other: &Tool) -> bool {
         self.1(&self.0, other)
     }
 }
@@ -104,31 +104,23 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             menu,
             button_text("LAY ".to_string(), 'B', "ELTS".to_string()),
             SelectToolAction(
-                SelectedTool::Build {
+                Tool::Build(BuildTool {
                     building: BuildingType::Belt,
                     direction: default(),
-                },
+                }),
                 PartialEq::eq,
             ),
         );
-
-        let same_building = |a: &SelectedTool, b: &SelectedTool| match (a, b) {
-            (
-                SelectedTool::Build { building: b_a, .. },
-                SelectedTool::Build { building: b_b, .. },
-            ) if b_a == b_b => true,
-            _ => false,
-        };
 
         button_builder(
             menu,
             button_text("BUILD ".to_string(), 'M', "INE".to_string()),
             SelectToolAction(
-                SelectedTool::Build {
+                Tool::Build(BuildTool {
                     building: BuildingType::Mine,
                     direction: default(),
-                },
-                same_building,
+                }),
+                is_same_building_tool,
             ),
         );
 
@@ -136,10 +128,10 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             menu,
             button_text("PLACE ".to_string(), 'C', "HEST".to_string()),
             SelectToolAction(
-                SelectedTool::Build {
+                Tool::Build(BuildTool {
                     building: BuildingType::Chest,
                     direction: default(),
-                },
+                }),
                 PartialEq::eq,
             ),
         );
@@ -147,7 +139,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         button_builder(
             menu,
             button_text("".to_string(), 'D', "EMOLISH".to_string()),
-            SelectToolAction(SelectedTool::Buldozer, PartialEq::eq),
+            SelectToolAction(Tool::Buldozer, PartialEq::eq),
         );
     });
 
@@ -184,7 +176,7 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 pub fn handle_select_tool(
     actions: Query<(&SelectToolAction, &Interaction), Changed<Interaction>>,
-    mut selected_tool: ResMut<SelectedTool>,
+    mut selected_tool: ResMut<Tool>,
 ) {
     if let Some((action, _)) = actions
         .iter()
@@ -195,7 +187,7 @@ pub fn handle_select_tool(
 }
 
 pub fn highlight_selected_tool(
-    selected_tool: Res<SelectedTool>,
+    selected_tool: Res<Tool>,
     mut elements: Query<(Entity, &mut BackgroundColor, &SelectToolAction)>,
     mut highlighted_nodes: Local<Vec<(Entity, BackgroundColor)>>,
 ) {
@@ -235,6 +227,15 @@ pub fn track_ui_interaction(
         .any(|i| matches!(i, Interaction::Clicked | Interaction::Hovered));
 
     map_interaction.0 = !is_interacting_with_ui;
+}
+
+fn is_same_building_tool(a: &Tool, b: &Tool) -> bool {
+    match (a, b) {
+        (Tool::Build(tool_a), Tool::Build(tool_b)) => {
+            tool_a.building == tool_b.building
+        }
+        _ => false,
+    }
 }
 
 const HELP_TEXT: &str = r#"
