@@ -107,15 +107,15 @@ impl PlacedBuildingTemplate<'_> {
                 (pos, *tile_type)
             })
     }   
-    
-    pub fn io(&self) -> impl Iterator<Item = (TilePos, IoTileType)> + '_ {
-        self.template.io[self.direction]
-            .iter()
-            .map(|(tile_pos, tile_type)| {
-                let pos = TilePos::new(self.origin.x + tile_pos.x, self.origin.y + tile_pos.y);
-                (pos, *tile_type)
-            })
-    }
+
+    // pub fn io(&self) -> impl Iterator<Item = (TilePos, IoTileType)> + '_ {
+    //     self.template.io[self.direction]
+    //         .iter()
+    //         .map(|(tile_pos, tile_type)| {
+    //             let pos = TilePos::new(self.origin.x + tile_pos.x, self.origin.y + tile_pos.y);
+    //             (pos, *tile_type)
+    //         })
+    // }
 }
 
 #[derive(Resource, Default)]

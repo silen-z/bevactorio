@@ -1,7 +1,6 @@
 use bevy::ecs::component::Component;
 
 #[derive(Component, Clone, Copy, PartialEq, Default, Eq)]
-#[allow(dead_code)]
 pub enum MapDirection {
     #[default]
     Up,

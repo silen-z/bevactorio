@@ -4,12 +4,12 @@ use bevy_ecs_tilemap::prelude::*;
 
 use self::templates::{BuildingTemplate, BuildingTemplates, PlacedBuildingTemplate};
 use crate::direction::MapDirection;
-use crate::map::{BuildingLayer, BuildingTileType, BuildGuideLayer};
+use crate::map::{BuildingLayer, BuildingTileType};
 
 pub mod chest;
+pub mod guide;
 pub mod mine;
 pub mod templates;
-pub mod guide;
 
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum BuildingType {
@@ -112,7 +112,6 @@ pub fn construct_building(
     mut building_layer: Query<(Entity, &mut TileStorage), With<BuildingLayer>>,
     changed_buildings: Query<
         (
-            Entity,
             &TilePos,
             &MapDirection,
             &Handle<BuildingTemplate>,
@@ -124,9 +123,7 @@ pub fn construct_building(
 ) {
     let (building_layer_entity, mut building_layer) = building_layer.single_mut();
 
-    for (building_entity, origin_pos, direction, template_handle, building) in
-        changed_buildings.iter()
-    {
+    for (origin_pos, direction, template_handle, building) in changed_buildings.iter() {
         // despawn tiles of previous building if it exists
         if let Some(Building { layout }) = building {
             for (entity, tile_pos, _) in &layout.tiles {
@@ -144,14 +141,17 @@ pub fn construct_building(
         let mut tiles = ArrayVec::new();
 
         for (tile_pos, tile_type) in template.instructions() {
-            let tile_entity = commands.spawn(TileBundle {
-                position: tile_pos,
-                tilemap_id: TilemapId(building_layer_entity),
-                texture_index: TileTextureIndex(tile_type as u32),
-                ..default()
-            }).insert(BuildingTile {
-                building: building_entity,
-            }).id();
+            let tile_entity = commands
+                .spawn(TileBundle {
+                    position: tile_pos,
+                    tilemap_id: TilemapId(building_layer_entity),
+                    texture_index: TileTextureIndex(tile_type as u32),
+                    ..default()
+                })
+                .insert(BuildingTile {
+                    building: building_entity,
+                })
+                .id();
 
             building_layer.set(&tile_pos, tile_entity);
             tiles.push((tile_entity, tile_pos, tile_type));
@@ -195,13 +195,10 @@ pub fn demolish_building(
     }
 }
 
-fn is_posible_to_build(
-    template: &PlacedBuildingTemplate,
-    building_layer: &TileStorage,
-) -> bool {
-    template.instructions().all(|(tile_pos, _)| {
-        building_layer.get(&tile_pos).is_none()
-    })
+fn is_posible_to_build(template: &PlacedBuildingTemplate, building_layer: &TileStorage) -> bool {
+    template
+        .instructions()
+        .all(|(tile_pos, _)| building_layer.get(&tile_pos).is_none())
 }
 
 pub struct UnknownBuildingType;

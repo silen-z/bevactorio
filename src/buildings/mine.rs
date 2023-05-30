@@ -32,7 +32,7 @@ pub fn mine_produce(
     mut commands: Commands,
     mut mines: Query<&mut Mine>,
     mut belts: Query<(Entity, &mut Belt)>,
-    mut tilemap_query: Query<&TileStorage, With<BuildingLayer>>,
+    tilemap_query: Query<&TileStorage, With<BuildingLayer>>,
     time: Res<Time>,
     asset_server: ResMut<AssetServer>,
 ) {

@@ -10,7 +10,7 @@ pub fn build_chest(
     new_chests: Query<(Entity, &BuildingType, &TilePos), Added<Building>>,
     building_layer: Query<&TileStorage, With<BuildingLayer>>,
 ) {
-    let mut building_layer = building_layer.single();
+    let building_layer = building_layer.single();
 
     for (entity, building_type, tile_pos) in new_chests.iter() {
         if let BuildingType::Chest = building_type {
