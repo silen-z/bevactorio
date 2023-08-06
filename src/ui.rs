@@ -16,10 +16,15 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MapInteraction>()
-            .add_startup_system(init_ui)
-            .add_system(handle_select_tool)
-            .add_system(highlight_selected_tool)
-            .add_system(track_ui_interaction);
+            .add_systems(Startup, init_ui)
+            .add_systems(
+                Update,
+                (
+                    handle_select_tool,
+                    highlight_selected_tool,
+                    track_ui_interaction,
+                ),
+            );
     }
 }
 
@@ -29,11 +34,10 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         style: Style {
             flex_direction: FlexDirection::ColumnReverse,
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(16.),
-                left: Val::Px(16.),
-                ..default()
-            },
+
+            top: Val::Px(16.),
+            left: Val::Px(16.),
+
             ..default()
         },
         ..default()
@@ -147,11 +151,8 @@ pub fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    right: Val::Px(16.),
-                    bottom: Val::Px(16.),
-                    ..default()
-                },
+                right: Val::Px(16.),
+                bottom: Val::Px(16.),
                 padding: UiRect::all(Val::Px(16.)),
                 ..default()
             },
@@ -180,7 +181,7 @@ pub fn handle_select_tool(
 ) {
     if let Some((action, _)) = actions
         .iter()
-        .find(|(_, interaction)| matches!(interaction, Interaction::Clicked))
+        .find(|(_, interaction)| matches!(interaction, Interaction::Pressed))
     {
         *selected_tool = action.0.clone();
     }
@@ -224,16 +225,14 @@ pub fn track_ui_interaction(
 ) {
     let is_interacting_with_ui = ui_components
         .iter()
-        .any(|i| matches!(i, Interaction::Clicked | Interaction::Hovered));
+        .any(|i| matches!(i, Interaction::Pressed | Interaction::Hovered));
 
     map_interaction.0 = !is_interacting_with_ui;
 }
 
 fn is_same_building_tool(a: &Tool, b: &Tool) -> bool {
     match (a, b) {
-        (Tool::Build(tool_a), Tool::Build(tool_b)) => {
-            tool_a.building == tool_b.building
-        }
+        (Tool::Build(tool_a), Tool::Build(tool_b)) => tool_a.building == tool_b.building,
         _ => false,
     }
 }

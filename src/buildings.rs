@@ -67,6 +67,7 @@ impl Tool {
     }
 }
 
+#[derive(Event)]
 pub struct BuildRequestedEvent {
     pub building_type: BuildingType,
     pub direction: MapDirection,
@@ -176,6 +177,7 @@ pub fn construct_building(
     }
 }
 
+#[derive(Event)]
 pub struct DemolishEvent {
     pub tile_pos: TilePos,
 }

@@ -204,6 +204,7 @@ pub fn init_map(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(BuildGuideLayer);
 }
 
+#[derive(Event)]
 pub enum MapEvent {
     ToggleGrid,
     ClearBuildings,

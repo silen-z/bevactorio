@@ -13,10 +13,14 @@ pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameCursor>()
-            .add_system(handle_mouse_input)
-            .add_system(handle_keyboard_input)
-            .add_systems((cursor::update_world_cursor, cursor::update_map_cursor).chain());
+        app.init_resource::<GameCursor>().add_systems(
+            Update,
+            (
+                handle_mouse_input,
+                handle_keyboard_input,
+                (cursor::update_world_cursor, cursor::update_map_cursor).chain(),
+            ),
+        );
     }
 }
 

@@ -1,7 +1,6 @@
 use arrayvec::ArrayVec;
-use bevy::asset::LoadedAsset;
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
+use bevy::reflect::{TypePath, TypeUuid};
 use bevy::utils::{Hashed, PreHashMap};
 use bevy_ecs_tilemap::prelude::*;
 use tiled::LayerType;
@@ -10,11 +9,12 @@ use super::{BuildingType, MAX_BUILDING_SIZE};
 use crate::direction::{Directional, MapDirection};
 use crate::map::{BuildingTileType, IoTileType};
 
+pub mod loader;
+
 type Instructions<T> = ArrayVec<(TilePos, T), MAX_BUILDING_SIZE>;
 
-#[derive(TypeUuid)]
+#[derive(Debug, TypeUuid, TypePath)]
 #[uuid = "a5bf35d0-f823-4a41-8e54-dd1bd4ed0acd"]
-#[derive(Debug)]
 pub struct BuildingTemplate {
     pub building_type: BuildingType,
     pub instructions: Directional<Instructions<BuildingTileType>>,
@@ -30,7 +30,7 @@ impl BuildingTemplate {
         }
     }
 
-    fn from_tilemap(
+    pub fn from_tilemap(
         building_type: BuildingType,
         map: tiled::Map,
     ) -> anyhow::Result<BuildingTemplate> {
@@ -58,7 +58,7 @@ fn get_layer<T: From<u32>>(
     direction: MapDirection,
 ) -> Option<Instructions<T>> {
     let direction_group = map.layers().find_map(|layer| match layer.layer_type() {
-        LayerType::GroupLayer(l) if direction == layer.name => Some(l),
+        LayerType::Group(l) if direction == layer.name => Some(l),
         _ => None,
     });
 
@@ -69,7 +69,7 @@ fn get_layer<T: From<u32>>(
         .or(map.layers().find(by_name))?;
 
     match layer.layer_type() {
-        tiled::LayerType::TileLayer(l) => instructions_from_layer(l),
+        tiled::LayerType::Tiles(l) => instructions_from_layer(l),
         _ => None,
     }
 }
@@ -130,41 +130,11 @@ impl BuildingRegistry {
     }
 
     pub fn get(&self, building: BuildingType) -> Handle<BuildingTemplate> {
-        self.templates[&Hashed::new(building)].clone()
-    }
-}
+        let Some(template) = self.templates.get(&Hashed::new(building)) else {
+            panic!("building {:?} is not registered, registered buildings {:?}", building, self.templates);
+        };
 
-pub struct BuildingTemplateLoader;
-
-impl bevy::asset::AssetLoader for BuildingTemplateLoader {
-    fn load<'a>(
-        &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut bevy::asset::LoadContext,
-    ) -> bevy::asset::BoxedFuture<'a, Result<(), anyhow::Error>> {
-        Box::pin(async move {
-            let mut loader = tiled::Loader::new();
-
-            let path = load_context.path();
-            let tilemap = loader.load_tmx_map_from(std::io::BufReader::new(bytes), path)?;
-
-            let building_type = path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .and_then(|s| s.strip_suffix(".building.tmx"))
-                .and_then(|s| s.parse().ok())
-                .ok_or_else(|| anyhow::anyhow!("unknown building {}", path.display()))?;
-
-            let template = BuildingTemplate::from_tilemap(building_type, tilemap)?;
-
-            load_context.set_default_asset(LoadedAsset::new(template));
-            Ok(())
-        })
-    }
-
-    fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["building.tmx"];
-        EXTENSIONS
+        template.clone()
     }
 }
 

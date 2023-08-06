@@ -1,5 +1,8 @@
 #![feature(let_chains)]
 
+use std::time::Duration;
+
+use bevy::asset::ChangeWatcher;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::TilemapPlugin;
@@ -8,9 +11,9 @@ use build_mode::BuildMode;
 use crate::belts::{input_from_belts, move_items_on_belts};
 use crate::build_mode::BuildModePlugin;
 use crate::buildings::mine::mine_produce;
+use crate::buildings::templates::loader::BuildingTemplateLoader;
 use crate::buildings::templates::{
-    load_building_templates, register_building_templates, BuildingTemplate, BuildingTemplateLoader,
-    BuildingRegistry,
+    load_building_templates, register_building_templates, BuildingRegistry, BuildingTemplate,
 };
 use crate::buildings::Tool;
 use crate::camera::{camera_movement, MainCamera, Zoom};
@@ -40,44 +43,44 @@ fn main() {
     };
 
     let asset_settings = AssetPlugin {
-        watch_for_changes: true,
+        // asset_folder: "assets".into(),
+        watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
         ..default()
     };
 
-    let in_game_systems = (
-        camera_movement,
-        mine_produce.before(move_items_on_belts),
-        move_items_on_belts,
-        input_from_belts.after(move_items_on_belts),
-    );
-
     App::new()
-        .add_plugins(
+        .add_plugins((
             DefaultPlugins
                 .set(window_settings)
                 .set(asset_settings)
                 .set(ImagePlugin::default_nearest()),
-        )
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(TilemapPlugin)
-        .add_plugin(UiPlugin)
-        .add_plugin(InputPlugin)
-        .add_plugin(GridPlugin)
-        .add_plugin(BuildModePlugin)
+            LogDiagnosticsPlugin::default(),
+            FrameTimeDiagnosticsPlugin::default(),
+            TilemapPlugin,
+            UiPlugin,
+            InputPlugin,
+            GridPlugin,
+            BuildModePlugin,
+        ))
         .add_asset::<BuildingTemplate>()
         .add_asset_loader(BuildingTemplateLoader)
         .init_resource::<Tool>()
         .init_resource::<BuildingRegistry>()
         .init_resource::<Zoom>()
         .add_event::<MapEvent>()
-        .add_startup_system(startup)
-        .add_startup_system(load_building_templates)
-        .add_system(register_building_templates)
-        .add_startup_system(init_map)
-        .add_systems(in_game_systems)
+        .add_systems(Startup, (startup, init_map, load_building_templates))
+        .add_systems(
+            Update,
+            (
+                register_building_templates,
+                camera_movement,
+                mine_produce.before(move_items_on_belts),
+                move_items_on_belts,
+                input_from_belts.after(move_items_on_belts),
+            ),
+        )
         .run();
-}                                  
+}
 
 fn startup(mut commands: Commands, mut next_state: ResMut<NextState<BuildMode>>) {
     commands.spawn(Camera2dBundle::default()).insert(MainCamera);

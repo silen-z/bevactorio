@@ -35,10 +35,11 @@ impl Plugin for BuildModePlugin {
             .chain()
             .distributive_run_if(should_update_build_guide);
 
+        let on_update = (build_mode, build_guide_systems);
+
         app.add_state::<BuildMode>()
             .add_event::<BuildRequestedEvent>()
             .add_event::<DemolishEvent>()
-            .add_systems(build_mode.in_set(OnUpdate(BuildMode::Enabled)))
-            .add_systems(build_guide_systems.in_set(OnUpdate(BuildMode::Enabled)));
+            .add_systems(Update, on_update.run_if(in_state(BuildMode::Enabled)));
     }
 }

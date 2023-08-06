@@ -1,4 +1,3 @@
-
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::filling::fill_tilemap;
 use bevy_ecs_tilemap::prelude::*;
@@ -12,8 +11,8 @@ pub struct GridPlugin;
 impl Plugin for GridPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Grid>()
-            .add_startup_system(create_grid_layer)
-            .add_system(toggle_grid.after(handle_keyboard_input));
+            .add_systems(Startup, create_grid_layer)
+            .add_systems(Update, toggle_grid.after(handle_keyboard_input));
     }
 }
 

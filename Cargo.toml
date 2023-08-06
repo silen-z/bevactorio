@@ -5,8 +5,8 @@ authors = ["Pavel Hrách <pavel@hrach.email>"]
 edition = "2021"
 
 [dependencies]
-anyhow = { version = "1.0.57" }
-arrayvec = { version = "0.7.2" }
-bevy = { version = "0.10.0", features = ["dynamic_linking"] }
-bevy_ecs_tilemap = { version = "0.10.0" }
-tiled = "0.10.2"
+anyhow = { version = "1.0.72" }
+arrayvec = { version = "0.7.4" }
+bevy = { version = "0.11.0", features = ["dynamic_linking"] }
+bevy_ecs_tilemap = { version = "0.11.0" }
+tiled = "0.11.1"
